@@ -1,0 +1,165 @@
+{
+  "botName": "ModBot",
+  "projectName": "C--Users-hedma-Documents-ModBot",
+  "activity": "/help • ModMod's Unreleased",
+  "activityType": "Watching",
+  "clientId": "1541193924993876099",
+  "guildId": "",
+  "autoDeploy": false,
+  "consoleLogs": true,
+  "autoRepliesEnabled": false,
+  "replyCooldown": 60,
+  "welcomeEnabled": false,
+  "welcomeChannel": "1529960048066039838",
+  "welcomeText": "Yooooo {user}!! Welcome to {server}! U are our {member.count}th member!! :D",
+  "goodbyeEnabled": false,
+  "goodbyeChannel": "",
+  "goodbyeText": "{user} left {server}.",
+  "autoRoleEnabled": false,
+  "autoRoleId": "",
+  "commands": [
+    {
+      "name": "unreleased",
+      "description": "Check the bot latency",
+      "permission": "",
+      "nsfw": false,
+      "options": [],
+      "steps": [
+        {
+          "type": "embed",
+          "title": "https://sites.google.com/view/modmodsunreleased/home",
+          "description": "Here u can find all of ModMod's unreleased albums, mixtapes and more!",
+          "color": "#000000",
+          "url": "",
+          "author": "ModMod's Unreleased",
+          "authorUrl": "",
+          "footer": "",
+          "thumbnail": "",
+          "image": "",
+          "timestamp": false,
+          "fields": []
+        }
+      ]
+    },
+    {
+      "name": "socials",
+      "description": "Sends links of ModMod's Unreleased",
+      "permission": "",
+      "nsfw": false,
+      "options": [],
+      "steps": [
+        {
+          "type": "embed",
+          "title": "LINKS:",
+          "description": "X: \nhttps://x.com/badbtchplaybook\nDiscord: \nhttps://discord.com/invite/29qAnXxWdM\nReddit:\nhttps://www.reddit.com/user/ModModRoots/\nYoutube:\nhttps://www.youtube.com/@ModModUploads\nTikTok: \nhttps://www.tiktok.com/@modmodroots?_r=1\nInstagram: \nhttps://www.instagram.com/modmodroots",
+          "color": "#ff0000",
+          "url": "",
+          "author": "ModMod's Socials",
+          "authorUrl": "",
+          "footer": "Bot Maker",
+          "thumbnail": "",
+          "image": "",
+          "timestamp": false,
+          "fields": []
+        }
+      ]
+    },
+    {
+      "name": "rate",
+      "description": "Sends a link to rate ModMod's unreleased!",
+      "permission": "",
+      "nsfw": false,
+      "options": [],
+      "steps": [
+        {
+          "type": "embed",
+          "title": "https://sites.google.com/view/modmodsunreleased/others/rate-the-albums",
+          "description": "Here u can rate all ye's albums and ModMod's unreleased!",
+          "color": "#000000",
+          "url": "",
+          "author": "Rate The Albums",
+          "authorUrl": "",
+          "footer": "",
+          "thumbnail": "",
+          "image": "",
+          "timestamp": false,
+          "fields": []
+        }
+      ]
+    },
+    {
+      "name": "facts",
+      "description": "Sends a random ModMod chance",
+      "permission": "",
+      "nsfw": false,
+      "options": [],
+      "steps": [
+        {
+          "type": "randomReply",
+          "responses": [
+            "My name is ModMod!",
+            "I made my first unreleased on the 18th of July, one day after making my server!",
+            "I make perler bead art!!",
+            "I still don’t have my own pc😢",
+            "I don’t have a set up, only a wooden stand and my bed...",
+            "I use two phones, one for normal shit, and the other for unreleased.",
+            "I have burned custom CDs before..",
+            "I have 3 cats :)",
+            "I got the idea of making a server after meeting someone on TikTok live",
+            "I only use real sources for my unreleased",
+            "I have a biggg crush on blib /j"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "help",
+      "description": "Shows bot commands",
+      "permission": "",
+      "nsfw": false,
+      "options": [],
+      "steps": [
+        {
+          "type": "reply",
+          "message": "sup {user}\n/unreleased \"Sends a link to our website with all unreleased!\"\n/socials \"Sends links of ModMod's Socials\"\n/rate \"Send a link to rate ModMod's Unreleased\"\n/facts \"Sends a random fact about ModMod\"\n/help \"this\"\n\n\"If u needed other help then ask me! @blib\"",
+          "ephemeral": true
+        }
+      ]
+    }
+  ],
+  "autoReplies": [
+    {
+      "matchType": "contains",
+      "trigger": "steph",
+      "triggers": [
+        "steph",
+        "stephable",
+        "stehp"
+      ],
+      "cooldown": 60,
+      "channels": "",
+      "responseType": "randomReply",
+      "message": "Hey {user}!",
+      "randomResponses": [
+        "fuck that pedo",
+        "steph is a pedophile shitfuck",
+        "yall talking about that shithead?"
+      ],
+      "ignoreBots": true,
+      "caseSensitive": false,
+      "embed": {
+        "title": "Embed title",
+        "description": "Embed description",
+        "color": "#5865F2",
+        "url": "",
+        "author": "",
+        "authorUrl": "",
+        "footer": "",
+        "thumbnail": "",
+        "image": "",
+        "timestamp": false,
+        "fields": []
+      }
+    }
+  ]
+}
