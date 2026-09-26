@@ -8,7 +8,7 @@ import {
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const GUILD_ID = process.env.DISCORD_GUILD_ID || "";
-const CO_OWNER_ID = process.env.CO_OWNER_ID || "";
+const CO_OWNER_ID = "863446773326151700";
 const BOT_CREATOR_NAME = process.env.BOT_CREATOR_NAME || "blibbbye";
 const CONFESSIONS_CHANNEL_NAME = process.env.CONFESSIONS_CHANNEL_NAME || "🤫・confessions";
 const DEPLOY_COMMANDS = (process.env.DEPLOY_COMMANDS || "true").toLowerCase() !== "false";
