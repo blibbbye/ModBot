@@ -352,10 +352,11 @@ async function updateMemberCountChannels() {
       const freshGuild = await client.guilds.fetch(guild.id);
       const memberCount = Math.max(0, (freshGuild.memberCount || 0) - 2);
 
-      const memberChannel = freshGuild.channels.cache.find(
+      const channels = await freshGuild.channels.fetch();
+      const memberChannel = channels.find(
         channel =>
           channel.type === ChannelType.GuildVoice &&
-          /^Members:\\s*\\d+$/i.test(channel.name)
+          /^Members:\s*\d+$/i.test(channel.name)
       );
 
       if (!memberChannel) continue;
