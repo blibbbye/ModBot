@@ -13,7 +13,7 @@ Generated with Discord Bot HTML Maker V4.
 8. Run npm start.
 
 ## Features
-- 8 slash/context commands
+- 9 slash/context commands
 - Anonymous `/confess` posts to `🤫・confessions` without revealing the command user's identity.
 - `/translate from to` saves the language pair for 10 minutes.
 - Because Discord chat-input slash interactions do not include a reply target, use **Apps → Translate** on the message you want translated after setting the languages with `/translate`.
