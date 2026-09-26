@@ -374,7 +374,10 @@ async function updateMemberCountChannels() {
 
 client.once(Events.ClientReady, async readyClient => {
   console.log(`✅ Logged in as ${readyClient.user.tag}`);
-  readyClient.user.setActivity("/help | modmodsunreleased", { type:"Watching" });
+  readyClient.user.setPresence({
+    activities: [{ name: "/help | modmodsunreleased" }],
+    status: "online"
+  });
 
   try {
     await deployCommands();
