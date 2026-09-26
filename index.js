@@ -128,7 +128,6 @@ async function run_help(ctx) {
     "/rate \"Send a link to rate ModMod's Unreleased\"\n" +
     "/facts \"Sends a random fact about ModMod\"\n" +
     "/confess \"Submit an anonymous confession\"\n" +
-    "Right-click a confession → Apps → showconfess (co-owner only) to reveal who sent it.\n" +
     "/help \"this\"\n\n" +
     "\"If u needed other help then ask me! @blib\"",
     true
@@ -375,7 +374,7 @@ async function updateMemberCountChannels() {
 
 client.once(Events.ClientReady, async readyClient => {
   console.log(`✅ Logged in as ${readyClient.user.tag}`);
-  readyClient.user.setActivity("/help • ModMod's Unreleased", { type:"Watching" });
+  readyClient.user.setActivity("/help | modmodsunreleased", { type:"Watching" });
 
   try {
     await deployCommands();
