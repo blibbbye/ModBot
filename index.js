@@ -1,16 +1,18 @@
 import "dotenv/config";
 import {
   Client, Events, GatewayIntentBits, REST, Routes, SlashCommandBuilder,
-  PermissionFlagsBits, MessageFlags, EmbedBuilder, ChannelType,
-  ContextMenuCommandBuilder, ApplicationCommandType
+  MessageFlags, EmbedBuilder, ChannelType,
+  ContextMenuCommandBuilder, ApplicationCommandType,
+  ActionRowBuilder, ButtonBuilder, ButtonStyle,
+  ModalBuilder, TextInputBuilder, TextInputStyle
 } from "discord.js";
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const GUILD_ID = process.env.DISCORD_GUILD_ID || "";
 const CO_OWNER_ID = "863446773326151700";
-const BOT_CREATOR_NAME = process.env.BOT_CREATOR_NAME || "blibbbye";
 const CONFESSIONS_CHANNEL_NAME = process.env.CONFESSIONS_CHANNEL_NAME || "🤫・confessions";
+const CONFESSIONS_FILE = "./confessions.json";
 const DEPLOY_COMMANDS = (process.env.DEPLOY_COMMANDS || "true").toLowerCase() !== "false";
 if (!TOKEN) throw new Error("Missing DISCORD_TOKEN in .env");
 if (!CLIENT_ID) throw new Error("Missing DISCORD_CLIENT_ID in .env");
@@ -64,8 +66,6 @@ function createMemberContext(member, channel){
   return {interaction:null,message:null,user:member.user,guild:member.guild,channel,vars:{}};
 }
 
-const translationPreferences = new Map();
-
 const commands = [
   new SlashCommandBuilder().setName("unreleased").setDescription("Check the bot latency"),
   new SlashCommandBuilder().setName("socials").setDescription("Sends links of ModMod's Unreleased"),
@@ -74,35 +74,17 @@ const commands = [
   new SlashCommandBuilder().setName("help").setDescription("Shows bot commands"),
   new SlashCommandBuilder()
     .setName("confess")
-    .setDescription("Send an anonymous confession")
+    .setDescription("Submit an anonymous confession")
     .addStringOption(option =>
       option.setName("message")
-        .setDescription("The confession to send anonymously")
-        .setRequired(true)
+        .setDescription("Optional confession text; leave empty to open the form")
+        .setRequired(false)
         .setMaxLength(2000)
     ),
-  new SlashCommandBuilder()
-    .setName("translate")
-    .setDescription("Translate a message")
-    .addStringOption(option =>
-      option.setName("from")
-        .setDescription("Source language, e.g. auto, english, sv, fr")
-        .setRequired(true)
-        .setMaxLength(30)
-    )
-    .addStringOption(option =>
-      option.setName("to")
-        .setDescription("Language to translate to, e.g. english, sv, fr")
-        .setRequired(true)
-        .setMaxLength(30)
-    ),
-  new SlashCommandBuilder()
-    .setName("co-owner")
-    .setDescription("Show ModBot creator and co-owner information"),
   new ContextMenuCommandBuilder()
-    .setName("Translate")
+    .setName("showconfess")
     .setType(ApplicationCommandType.Message)
-];
+]
 
 async function run_unreleased(ctx) {
   const vars = ctx.vars;
@@ -136,191 +118,206 @@ async function run_facts(ctx) {
 }
 
 async function run_help(ctx) {
-  const vars = ctx.vars;
-  await ctx.reply(`sup ${ctx.user?.toString?.() ?? ""}
-/unreleased "Sends a link to our website with all unreleased!"
-/socials "Sends links of ModMod's Socials"
-/rate "Send a link to rate ModMod's Unreleased"
-/facts "Sends a random fact about ModMod"
-/help "this"
-
-"If u needed other help then ask me! @blib"`, true);
+  await ctx.reply(
+    "sup " + (ctx.user?.toString?.() ?? "") + "\n" +
+    "/unreleased \"Sends a link to our website with all unreleased!\"\n" +
+    "/socials \"Sends links of ModMod's Socials\"\n" +
+    "/rate \"Send a link to rate ModMod's Unreleased\"\n" +
+    "/facts \"Sends a random fact about ModMod\"\n" +
+    "/confess \"Submit an anonymous confession\"\n" +
+    "Right-click a confession → Apps → showconfess (co-owner only) to reveal who sent it.\n" +
+    "/help \"this\"\n\n" +
+    "\"If u needed other help then ask me! @blib\"",
+    true
+  );
 }
 
-
-function normaliseLanguage(language) {
-  const value = String(language || "").trim().toLowerCase();
-  const aliases = {
-    auto: "auto",
-    english: "en", en: "en",
-    swedish: "sv", sv: "sv", svenska: "sv",
-    finnish: "fi", fi: "fi", suomi: "fi",
-    norwegian: "no", no: "no", norsk: "no",
-    danish: "da", da: "da", dansk: "da",
-    german: "de", de: "de", deutsch: "de",
-    french: "fr", fr: "fr",
-    spanish: "es", es: "es", español: "es",
-    italian: "it", it: "it",
-    portuguese: "pt", pt: "pt",
-    dutch: "nl", nl: "nl",
-    polish: "pl", pl: "pl",
-    russian: "ru", ru: "ru",
-    ukrainian: "uk", uk: "uk",
-    japanese: "ja", ja: "ja",
-    korean: "ko", ko: "ko",
-    chinese: "zh", zh: "zh",
-    arabic: "ar", ar: "ar",
-    turkish: "tr", tr: "tr"
-  };
-  return aliases[value] || value;
+async function loadConfessions() {
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const raw = await readFile(CONFESSIONS_FILE, "utf8");
+    const data = JSON.parse(raw);
+    return data && typeof data === "object" ? data : {};
+  } catch {
+    return {};
+  }
 }
 
-async function translateText(text, from, to) {
-  const source = normaliseLanguage(from);
-  const target = normaliseLanguage(to);
-
-  if (!target || target === "auto") {
-    throw new Error("The target language cannot be auto.");
-  }
-  if (source === target && source !== "auto") return text;
-
-  const url = new URL("https://translate.googleapis.com/translate_a/single");
-  url.searchParams.set("client", "gtx");
-  url.searchParams.set("sl", source || "auto");
-  url.searchParams.set("tl", target);
-  url.searchParams.set("dt", "t");
-  url.searchParams.set("q", text);
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error("Translation service returned HTTP " + response.status);
-  }
-
-  const data = await response.json();
-  const translated = Array.isArray(data?.[0])
-    ? data[0].map(part => Array.isArray(part) ? part[0] : "").join("")
-    : "";
-
-  if (!translated) {
-    throw new Error("Translation service returned no translated text.");
-  }
-
-  return translated;
+async function saveConfessions(data) {
+  const { writeFile } = await import("node:fs/promises");
+  await writeFile(CONFESSIONS_FILE, JSON.stringify(data, null, 2), "utf8");
 }
 
-async function run_confess(ctx) {
-  const confession = ctx.interaction.options.getString("message", true).trim();
-
-  if (!confession) {
-    return await ctx.reply("Your confession cannot be empty.", true);
-  }
-
-  const confessionChannel = ctx.guild?.channels.cache.find(
+function findConfessionsChannel(guild) {
+  return guild?.channels.cache.find(
     channel =>
       channel.type === ChannelType.GuildText &&
       channel.name === CONFESSIONS_CHANNEL_NAME
   );
+}
+
+function createConfessionEmbed(confession) {
+  return new EmbedBuilder()
+    .setTitle("🤫 Anonymous Confession")
+    .setDescription(confession)
+    .setColor("#000000")
+    .setFooter({ text: "Want to submit one? Use the button below." });
+}
+
+function createConfessionButtonRow() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("submit_confession")
+      .setLabel("Submit a Confession")
+      .setStyle(ButtonStyle.Secondary)
+  );
+}
+
+async function sendConfession(guild, confession, authorId) {
+  const confessionChannel = findConfessionsChannel(guild);
 
   if (!confessionChannel) {
-    return await ctx.reply(
-      "I couldn't find the " + CONFESSIONS_CHANNEL_NAME + " channel in this server.",
+    throw new Error("Missing confessions channel");
+  }
+
+  const sentMessage = await confessionChannel.send({
+    embeds: [createConfessionEmbed(confession)],
+    components: [createConfessionButtonRow()]
+  });
+
+  const confessions = await loadConfessions();
+  confessions[sentMessage.id] = {
+    userId: authorId,
+    createdAt: new Date().toISOString()
+  };
+  await saveConfessions(confessions);
+
+  return sentMessage;
+}
+
+async function showConfessionModal(interaction) {
+  const modal = new ModalBuilder()
+    .setCustomId("confession_modal")
+    .setTitle("Submit a Confession");
+
+  const input = new TextInputBuilder()
+    .setCustomId("confession_text")
+    .setLabel("Your confession")
+    .setStyle(TextInputStyle.Paragraph)
+    .setPlaceholder("Write your confession...")
+    .setRequired(true)
+    .setMaxLength(2000);
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(input)
+  );
+
+  await interaction.showModal(modal);
+}
+
+async function run_confess(ctx) {
+  const directMessage = ctx.interaction.options.getString("message");
+
+  if (!directMessage) {
+    return await showConfessionModal(ctx.interaction);
+  }
+
+  const confession = directMessage.trim();
+  if (!confession) {
+    return await ctx.reply("Your confession cannot be empty.", true);
+  }
+
+  try {
+    await sendConfession(ctx.guild, confession, ctx.user.id);
+    await ctx.reply("✅ Your confession was sent anonymously.", true);
+  } catch (error) {
+    console.error("Confession error:", error);
+    await ctx.reply(
+      "❌ I couldn't send the confession. Make sure the " + CONFESSIONS_CHANNEL_NAME + " channel exists and the bot can send messages there.",
       true
     );
   }
-
-  await confessionChannel.send({
-    content: "🤫 **Anonymous Confession**\n\n" + confession,
-    allowedMentions: { parse: [] }
-  });
-
-  await ctx.reply("✅ Your confession was sent anonymously.", true);
 }
 
-async function run_translate_context(ctx) {
-  const targetMessage = ctx.interaction.targetMessage;
+async function run_show_confess(interaction) {
+  if (interaction.user.id !== CO_OWNER_ID) {
+    return await interaction.reply({
+      content: "You don't have permission to use this.",
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  const targetMessage = interaction.targetMessage;
 
   if (!targetMessage) {
-    return await ctx.reply("I couldn't read that message.", true);
+    return await interaction.reply({
+      content: "I couldn't read that confession.",
+      flags: MessageFlags.Ephemeral
+    });
   }
 
-  const text = targetMessage.content?.trim();
-  if (!text) {
-    return await ctx.reply("The selected message doesn't contain translatable text.", true);
+  if (targetMessage.channel?.name !== CONFESSIONS_CHANNEL_NAME) {
+    return await interaction.reply({
+      content: "This can only be used on a message in " + CONFESSIONS_CHANNEL_NAME + ".",
+      flags: MessageFlags.Ephemeral
+    });
   }
 
-  const saved = translationPreferences.get(ctx.user.id);
-  const from = saved?.from || "auto";
-  const to = saved?.to || process.env.DEFAULT_TRANSLATE_TO || "en";
+  const confessions = await loadConfessions();
+  const record = confessions[targetMessage.id];
 
-  await ctx.interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  if (!record?.userId) {
+    return await interaction.reply({
+      content: "I couldn't find who sent this confession.",
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  const user = await client.users.fetch(record.userId).catch(() => null);
+  const confessionText =
+    targetMessage.embeds?.[0]?.description ||
+    targetMessage.content ||
+    "(No confession text found.)";
+
+  await interaction.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setTitle("🔎 Confession Details")
+        .setDescription(confessionText)
+        .addFields({
+          name: "Sent by",
+          value: user ? user.toString() + " (" + user.username + ")" : record.userId,
+          inline: false
+        })
+        .setColor("#000000")
+    ],
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+async function handleConfessionModal(interaction) {
+  const confession = interaction.fields.getTextInputValue("confession_text")?.trim();
+
+  if (!confession) {
+    return await interaction.reply({
+      content: "Your confession cannot be empty.",
+      flags: MessageFlags.Ephemeral
+    });
+  }
 
   try {
-    const translated = await translateText(text, from, to);
-
-    await ctx.interaction.editReply({
-      content:
-        "🌐 **Translation (" + from + " → " + to + ")**\n" +
-        translated,
-      allowedMentions: { parse: [] }
+    await sendConfession(interaction.guild, confession, interaction.user.id);
+    await interaction.reply({
+      content: "✅ Your confession was sent anonymously.",
+      flags: MessageFlags.Ephemeral
     });
   } catch (error) {
-    console.error("Translation error:", error);
-    await ctx.interaction.editReply(
-      "❌ I couldn't translate that message. Check the language names/codes and try again."
-    );
+    console.error("Confession modal error:", error);
+    await interaction.reply({
+      content: "❌ I couldn't send the confession. Make sure the " + CONFESSIONS_CHANNEL_NAME + " channel exists and the bot can send messages there.",
+      flags: MessageFlags.Ephemeral
+    });
   }
-}
-
-async function run_translate_slash(ctx) {
-  const from = ctx.interaction.options.getString("from", true);
-  const to = ctx.interaction.options.getString("to", true);
-
-  if (normaliseLanguage(to) === "auto") {
-    return await ctx.reply("The target language cannot be auto.", true);
-  }
-
-  translationPreferences.set(ctx.user.id, {
-    from,
-    to,
-    expiresAt: Date.now() + 10 * 60 * 1000
-  });
-
-  setTimeout(() => {
-    const saved = translationPreferences.get(ctx.user.id);
-    if (saved?.expiresAt && saved.expiresAt <= Date.now()) {
-      translationPreferences.delete(ctx.user.id);
-    }
-  }, 10 * 60 * 1000 + 1000);
-
-  return await ctx.reply(
-    "✅ Translation set to **" + from + " → " + to + "** for 10 minutes. Now right-click the message you want to translate → **Apps → Translate**.",
-    true
-  );
-}
-
-async function run_co_owner(ctx) {
-  if (!CO_OWNER_ID || ctx.user?.id !== CO_OWNER_ID) {
-    return await ctx.reply("You don't have permission to use this command.", true);
-  }
-
-  await ctx.replyEmbed(
-    new EmbedBuilder()
-      .setTitle("𝘾𝙊-𝙊𝙒𝙉𝙀𝙍")
-      .setDescription("ModBot information")
-      .addFields(
-        { name: "Creator", value: BOT_CREATOR_NAME, inline: true },
-        { name: "Co-Owner", value: "<@" + CO_OWNER_ID + ">", inline: true },
-        {
-          name: "Bot",
-          value: client.user
-            ? "<@" + client.user.id + "> (" + client.user.tag + ")"
-            : "ModBot",
-          inline: false
-        }
-      )
-      .setColor("#000000"),
-    true
-  );
 }
 
 async function deployCommands() {
@@ -360,8 +357,16 @@ client.once(Events.ClientReady, async readyClient => {
 
 client.on(Events.InteractionCreate, async interaction => {
   try {
-    if (interaction.isMessageContextMenuCommand() && interaction.commandName === "Translate") {
-      return await run_translate_context(createInteractionContext(interaction));
+    if (interaction.isMessageContextMenuCommand() && interaction.commandName === "showconfess") {
+      return await run_show_confess(interaction);
+    }
+
+    if (interaction.isButton() && interaction.customId === "submit_confession") {
+      return await showConfessionModal(interaction);
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId === "confession_modal") {
+      return await handleConfessionModal(interaction);
     }
 
     if (!interaction.isChatInputCommand()) return;
@@ -374,8 +379,6 @@ client.on(Events.InteractionCreate, async interaction => {
     if (interaction.commandName === "facts") return await run_facts(ctx);
     if (interaction.commandName === "help") return await run_help(ctx);
     if (interaction.commandName === "confess") return await run_confess(ctx);
-    if (interaction.commandName === "translate") return await run_translate_slash(ctx);
-    if (interaction.commandName === "co-owner") return await run_co_owner(ctx);
   } catch (error) {
     console.error("Command error:", error);
     const payload={content:"Something went wrong while running that command.",flags:MessageFlags.Ephemeral};
