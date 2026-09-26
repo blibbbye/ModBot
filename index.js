@@ -1,12 +1,17 @@
 import "dotenv/config";
 import {
   Client, Events, GatewayIntentBits, REST, Routes, SlashCommandBuilder,
-  PermissionFlagsBits, MessageFlags, EmbedBuilder, ChannelType
+  PermissionFlagsBits, MessageFlags, EmbedBuilder, ChannelType,
+  ContextMenuCommandBuilder, ApplicationCommandType
 } from "discord.js";
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const GUILD_ID = process.env.DISCORD_GUILD_ID || "";
+const CO_OWNER_ID = process.env.CO_OWNER_ID || "";
+const BOT_CREATOR_NAME = process.env.BOT_CREATOR_NAME || "blibbbye";
+const CONFESSIONS_CHANNEL_NAME = process.env.CONFESSIONS_CHANNEL_NAME || "🤫・confessions";
+const DEPLOY_COMMANDS = (process.env.DEPLOY_COMMANDS || "true").toLowerCase() !== "false";
 if (!TOKEN) throw new Error("Missing DISCORD_TOKEN in .env");
 if (!CLIENT_ID) throw new Error("Missing DISCORD_CLIENT_ID in .env");
 
@@ -64,7 +69,37 @@ const commands = [
   new SlashCommandBuilder().setName("socials").setDescription("Sends links of ModMod's Unreleased"),
   new SlashCommandBuilder().setName("rate").setDescription("Sends a link to rate ModMod's unreleased!"),
   new SlashCommandBuilder().setName("facts").setDescription("Sends a random ModMod chance"),
-  new SlashCommandBuilder().setName("help").setDescription("Shows bot commands")
+  new SlashCommandBuilder().setName("help").setDescription("Shows bot commands"),
+  new SlashCommandBuilder()
+    .setName("confess")
+    .setDescription("Send an anonymous confession")
+    .addStringOption(option =>
+      option.setName("message")
+        .setDescription("The confession to send anonymously")
+        .setRequired(true)
+        .setMaxLength(2000)
+    ),
+  new SlashCommandBuilder()
+    .setName("translate")
+    .setDescription("Translate a message")
+    .addStringOption(option =>
+      option.setName("from")
+        .setDescription("Source language, e.g. auto, english, sv, fr")
+        .setRequired(true)
+        .setMaxLength(30)
+    )
+    .addStringOption(option =>
+      option.setName("to")
+        .setDescription("Language to translate to, e.g. english, sv, fr")
+        .setRequired(true)
+        .setMaxLength(30)
+    ),
+  new SlashCommandBuilder()
+    .setName("co-owner")
+    .setDescription("Show ModBot creator and co-owner information"),
+  new ContextMenuCommandBuilder()
+    .setName("Translate")
+    .setType(ApplicationCommandType.Message)
 ];
 
 async function run_unreleased(ctx) {
@@ -110,20 +145,208 @@ async function run_help(ctx) {
 "If u needed other help then ask me! @blib"`, true);
 }
 
+
+function normaliseLanguage(language) {
+  const value = String(language || "").trim().toLowerCase();
+  const aliases = {
+    auto: "auto",
+    english: "en", en: "en",
+    swedish: "sv", sv: "sv", svenska: "sv",
+    finnish: "fi", fi: "fi", suomi: "fi",
+    norwegian: "no", no: "no", norsk: "no",
+    danish: "da", da: "da", dansk: "da",
+    german: "de", de: "de", deutsch: "de",
+    french: "fr", fr: "fr",
+    spanish: "es", es: "es", español: "es",
+    italian: "it", it: "it",
+    portuguese: "pt", pt: "pt",
+    dutch: "nl", nl: "nl",
+    polish: "pl", pl: "pl",
+    russian: "ru", ru: "ru",
+    ukrainian: "uk", uk: "uk",
+    japanese: "ja", ja: "ja",
+    korean: "ko", ko: "ko",
+    chinese: "zh", zh: "zh",
+    arabic: "ar", ar: "ar",
+    turkish: "tr", tr: "tr"
+  };
+  return aliases[value] || value;
+}
+
+async function translateText(text, from, to) {
+  const source = normaliseLanguage(from);
+  const target = normaliseLanguage(to);
+
+  if (!target || target === "auto") {
+    throw new Error("The target language cannot be auto.");
+  }
+  if (source === target && source !== "auto") return text;
+
+  const url = new URL("https://translate.googleapis.com/translate_a/single");
+  url.searchParams.set("client", "gtx");
+  url.searchParams.set("sl", source || "auto");
+  url.searchParams.set("tl", target);
+  url.searchParams.set("dt", "t");
+  url.searchParams.set("q", text);
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error("Translation service returned HTTP " + response.status);
+  }
+
+  const data = await response.json();
+  const translated = Array.isArray(data?.[0])
+    ? data[0].map(part => Array.isArray(part) ? part[0] : "").join("")
+    : "";
+
+  if (!translated) {
+    throw new Error("Translation service returned no translated text.");
+  }
+
+  return translated;
+}
+
+async function run_confess(ctx) {
+  const confession = ctx.interaction.options.getString("message", true).trim();
+
+  if (!confession) {
+    return await ctx.reply("Your confession cannot be empty.", true);
+  }
+
+  const confessionChannel = ctx.guild?.channels.cache.find(
+    channel =>
+      channel.type === ChannelType.GuildText &&
+      channel.name === CONFESSIONS_CHANNEL_NAME
+  );
+
+  if (!confessionChannel) {
+    return await ctx.reply(
+      "I couldn't find the " + CONFESSIONS_CHANNEL_NAME + " channel in this server.",
+      true
+    );
+  }
+
+  await confessionChannel.send({
+    content: "🤫 **Anonymous Confession**\n\n" + confession,
+    allowedMentions: { parse: [] }
+  });
+
+  await ctx.reply("✅ Your confession was sent anonymously.", true);
+}
+
+async function run_translate_context(ctx) {
+  const targetMessage = ctx.interaction.targetMessage;
+
+  if (!targetMessage) {
+    return await ctx.reply("I couldn't read that message.", true);
+  }
+
+  const text = targetMessage.content?.trim();
+  if (!text) {
+    return await ctx.reply("The selected message doesn't contain translatable text.", true);
+  }
+
+  const to = process.env.DEFAULT_TRANSLATE_TO || "en";
+  await ctx.interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  try {
+    const translated = await translateText(text, "auto", to);
+
+    await ctx.interaction.editReply({
+      content: "🌐 **Translation (auto → " + to + ")**\n" + translated,
+      allowedMentions: { parse: [] }
+    });
+  } catch (error) {
+    console.error("Translation error:", error);
+    await ctx.interaction.editReply("❌ I couldn't translate that message.");
+  }
+}
+
+async function run_translate_slash(ctx) {
+  return await ctx.reply(
+    "Discord does not provide a reply target to slash-command interactions. Use Apps → Translate on the message you want to translate. The Translate app command is the Discord-supported way to select a specific message.",
+    true
+  );
+}
+
+async function run_co_owner(ctx) {
+  if (!CO_OWNER_ID || ctx.user?.id !== CO_OWNER_ID) {
+    return await ctx.reply("You don't have permission to use this command.", true);
+  }
+
+  await ctx.replyEmbed(
+    new EmbedBuilder()
+      .setTitle("𝘾𝙊-𝙊𝙒𝙉𝙀𝙍")
+      .setDescription("ModBot information")
+      .addFields(
+        { name: "Creator", value: BOT_CREATOR_NAME, inline: true },
+        { name: "Co-Owner", value: "<@" + CO_OWNER_ID + ">", inline: true },
+        {
+          name: "Bot",
+          value: client.user
+            ? "<@" + client.user.id + "> (" + client.user.tag + ")"
+            : "ModBot",
+          inline: false
+        }
+      )
+      .setColor("#000000"),
+    true
+  );
+}
+
+async function deployCommands() {
+  if (!DEPLOY_COMMANDS) {
+    console.log("ℹ️ Automatic command deployment is disabled.");
+    return;
+  }
+
+  const rest = new REST({ version: "10" }).setToken(TOKEN);
+  const commandData = commands.map(command => command.toJSON());
+
+  if (GUILD_ID) {
+    await rest.put(
+      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+      { body: commandData }
+    );
+    console.log("✅ Deployed " + commandData.length + " commands to guild " + GUILD_ID + ".");
+  } else {
+    await rest.put(
+      Routes.applicationCommands(CLIENT_ID),
+      { body: commandData }
+    );
+    console.log("✅ Deployed " + commandData.length + " global commands.");
+  }
+}
+
 client.once(Events.ClientReady, async readyClient => {
   console.log(`✅ Logged in as ${readyClient.user.tag}`);
   readyClient.user.setActivity("/help • ModMod's Unreleased", { type:"Watching" });
-    console.log('ℹ️ Automatic command deployment is disabled.');
+
+  try {
+    await deployCommands();
+  } catch (error) {
+    console.error("❌ Command deployment failed:", error);
+  }
 });
 
 client.on(Events.InteractionCreate, async interaction => {
-  if (!interaction.isChatInputCommand()) return;
   try {
-    if (interaction.commandName === "unreleased") return await run_unreleased(createInteractionContext(interaction));
-    if (interaction.commandName === "socials") return await run_socials(createInteractionContext(interaction));
-    if (interaction.commandName === "rate") return await run_rate(createInteractionContext(interaction));
-    if (interaction.commandName === "facts") return await run_facts(createInteractionContext(interaction));
-    if (interaction.commandName === "help") return await run_help(createInteractionContext(interaction));
+    if (interaction.isMessageContextMenuCommand() && interaction.commandName === "Translate") {
+      return await run_translate_context(createInteractionContext(interaction));
+    }
+
+    if (!interaction.isChatInputCommand()) return;
+
+    const ctx = createInteractionContext(interaction);
+
+    if (interaction.commandName === "unreleased") return await run_unreleased(ctx);
+    if (interaction.commandName === "socials") return await run_socials(ctx);
+    if (interaction.commandName === "rate") return await run_rate(ctx);
+    if (interaction.commandName === "facts") return await run_facts(ctx);
+    if (interaction.commandName === "help") return await run_help(ctx);
+    if (interaction.commandName === "confess") return await run_confess(ctx);
+    if (interaction.commandName === "translate") return await run_translate_slash(ctx);
+    if (interaction.commandName === "co-owner") return await run_co_owner(ctx);
   } catch (error) {
     console.error("Command error:", error);
     const payload={content:"Something went wrong while running that command.",flags:MessageFlags.Ephemeral};
@@ -131,7 +354,5 @@ client.on(Events.InteractionCreate, async interaction => {
     else await interaction.reply(payload).catch(()=>null);
   }
 });
-
-
 
 client.login(TOKEN);
