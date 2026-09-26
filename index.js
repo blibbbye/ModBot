@@ -64,6 +64,8 @@ function createMemberContext(member, channel){
   return {interaction:null,message:null,user:member.user,guild:member.guild,channel,vars:{}};
 }
 
+const translationPreferences = new Map();
+
 const commands = [
   new SlashCommandBuilder().setName("unreleased").setDescription("Check the bot latency"),
   new SlashCommandBuilder().setName("socials").setDescription("Sends links of ModMod's Unreleased"),
@@ -246,25 +248,52 @@ async function run_translate_context(ctx) {
     return await ctx.reply("The selected message doesn't contain translatable text.", true);
   }
 
-  const to = process.env.DEFAULT_TRANSLATE_TO || "en";
+  const saved = translationPreferences.get(ctx.user.id);
+  const from = saved?.from || "auto";
+  const to = saved?.to || process.env.DEFAULT_TRANSLATE_TO || "en";
+
   await ctx.interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
-    const translated = await translateText(text, "auto", to);
+    const translated = await translateText(text, from, to);
 
     await ctx.interaction.editReply({
-      content: "🌐 **Translation (auto → " + to + ")**\n" + translated,
+      content:
+        "🌐 **Translation (" + from + " → " + to + ")**\n" +
+        translated,
       allowedMentions: { parse: [] }
     });
   } catch (error) {
     console.error("Translation error:", error);
-    await ctx.interaction.editReply("❌ I couldn't translate that message.");
+    await ctx.interaction.editReply(
+      "❌ I couldn't translate that message. Check the language names/codes and try again."
+    );
   }
 }
 
 async function run_translate_slash(ctx) {
+  const from = ctx.interaction.options.getString("from", true);
+  const to = ctx.interaction.options.getString("to", true);
+
+  if (normaliseLanguage(to) === "auto") {
+    return await ctx.reply("The target language cannot be auto.", true);
+  }
+
+  translationPreferences.set(ctx.user.id, {
+    from,
+    to,
+    expiresAt: Date.now() + 10 * 60 * 1000
+  });
+
+  setTimeout(() => {
+    const saved = translationPreferences.get(ctx.user.id);
+    if (saved?.expiresAt && saved.expiresAt <= Date.now()) {
+      translationPreferences.delete(ctx.user.id);
+    }
+  }, 10 * 60 * 1000 + 1000);
+
   return await ctx.reply(
-    "Discord does not provide a reply target to slash-command interactions. Use Apps → Translate on the message you want to translate. The Translate app command is the Discord-supported way to select a specific message.",
+    "✅ Translation set to **" + from + " → " + to + "** for 10 minutes. Now right-click the message you want to translate → **Apps → Translate**.",
     true
   );
 }
