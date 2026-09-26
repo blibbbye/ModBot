@@ -10,7 +10,10 @@ import {
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const GUILD_ID = process.env.DISCORD_GUILD_ID || "";
-const CO_OWNER_ID = "863446773326151700";
+const SHOW_CONFESS_IDS = new Set([
+  "863446773326151700",
+  "926417866922811392"
+]);
 const CONFESSIONS_CHANNEL_NAME = process.env.CONFESSIONS_CHANNEL_NAME || "🤫・confessions";
 const CONFESSIONS_FILE = "./confessions.json";
 const DEPLOY_COMMANDS = (process.env.DEPLOY_COMMANDS || "true").toLowerCase() !== "false";
@@ -240,7 +243,7 @@ async function run_confess(ctx) {
 }
 
 async function run_show_confess(interaction) {
-  if (interaction.user.id !== CO_OWNER_ID) {
+  if (!SHOW_CONFESS_IDS.has(interaction.user.id)) {
     return await interaction.reply({
       content: "You don't have permission to use this.",
       flags: MessageFlags.Ephemeral
@@ -273,7 +276,6 @@ async function run_show_confess(interaction) {
     });
   }
 
-  const user = await client.users.fetch(record.userId).catch(() => null);
   const confessionText =
     targetMessage.embeds?.[0]?.description ||
     targetMessage.content ||
@@ -285,8 +287,8 @@ async function run_show_confess(interaction) {
         .setTitle("🔎 Confession Details")
         .setDescription(confessionText)
         .addFields({
-          name: "Sent by",
-          value: user ? user.toString() + " (" + user.username + ")" : record.userId,
+          name: "Sender User ID",
+          value: record.userId,
           inline: false
         })
         .setColor("#000000")
