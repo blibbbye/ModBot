@@ -346,6 +346,32 @@ async function deployCommands() {
   }
 }
 
+async function updateMemberCountChannels() {
+  for (const guild of client.guilds.cache.values()) {
+    try {
+      const freshGuild = await client.guilds.fetch(guild.id);
+      const memberCount = Math.max(0, (freshGuild.memberCount || 0) - 2);
+
+      const memberChannel = freshGuild.channels.cache.find(
+        channel =>
+          channel.type === ChannelType.GuildVoice &&
+          /^Members:\\s*\\d+$/i.test(channel.name)
+      );
+
+      if (!memberChannel) continue;
+
+      const newName = "Members: " + memberCount;
+      if (memberChannel.name !== newName) {
+        await memberChannel.setName(newName, "Update server member count").catch(error => {
+          console.error("❌ Could not rename member count channel in " + freshGuild.name + ":", error.message);
+        });
+      }
+    } catch (error) {
+      console.error("❌ Member count update failed for guild " + guild.id + ":", error.message);
+    }
+  }
+}
+
 client.once(Events.ClientReady, async readyClient => {
   console.log(`✅ Logged in as ${readyClient.user.tag}`);
   readyClient.user.setActivity("/help • ModMod's Unreleased", { type:"Watching" });
@@ -355,6 +381,9 @@ client.once(Events.ClientReady, async readyClient => {
   } catch (error) {
     console.error("❌ Command deployment failed:", error);
   }
+
+  await updateMemberCountChannels();
+  setInterval(updateMemberCountChannels, 60 * 1000);
 });
 
 client.on(Events.InteractionCreate, async interaction => {
