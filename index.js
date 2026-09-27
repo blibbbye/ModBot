@@ -81,13 +81,19 @@ const commands = [
     .setDescription("Submit an anonymous confession")
     .addStringOption(option =>
       option.setName("message")
-        .setDescription("Optional confession text; leave empty to open the form")
+        .setDescription("Optional confession text; leave empty for the form")
         .setRequired(false)
         .setMaxLength(2000)
+    )
+    .addAttachmentOption(option =>
+      option.setName("file")
+        .setDescription("Optional image or file to attach to the confession")
+        .setRequired(false)
     ),
   new ContextMenuCommandBuilder()
     .setName("showconfess")
     .setType(ApplicationCommandType.Message)
+    .setDefaultMemberPermissions("8192")
 ]
 
 async function run_unreleased(ctx) {
@@ -211,6 +217,10 @@ function createConfessionButtonRow(authorId) {
     new ButtonBuilder()
       .setCustomId("submit_confession:" + senderToken)
       .setLabel("Submit a Confession")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId("secret_reply:" + senderToken)
+      .setLabel("Secret Reply")
       .setStyle(ButtonStyle.Secondary)
   );
 }
@@ -226,17 +236,39 @@ function getEncodedSenderFromMessage(message) {
   return customId ? decodeConfessionSender(customId.slice("submit_confession:".length)) : null;
 }
 
-async function sendConfession(guild, confession, authorId) {
+async function sendConfession(guild, confession, authorId, attachment = null) {
   const confessionChannel = findConfessionsChannel(guild);
 
   if (!confessionChannel) {
     throw new Error("Missing confessions channel");
   }
 
-  const sentMessage = await confessionChannel.send({
-    embeds: [createConfessionEmbed(confession)],
+  const embed = createConfessionEmbed(
+    confession || (attachment ? "📎 Anonymous confession" : "")
+  );
+
+  const payload = {
+    embeds: [embed],
     components: [createConfessionButtonRow(authorId)]
-  });
+  };
+
+  if (attachment) {
+    payload.files = [{
+      attachment: attachment.url,
+      name: attachment.name || "confession-file"
+    }];
+
+    if (attachment.contentType?.startsWith("image/")) {
+      embed.setImage(attachment.url);
+    } else {
+      embed.addFields({
+        name: "Attachment",
+        value: attachment.url
+      });
+    }
+  }
+
+  const sentMessage = await confessionChannel.send(payload);
 
   const confessions = await loadConfessions();
   confessions[sentMessage.id] = {
@@ -270,18 +302,16 @@ async function showConfessionModal(interaction) {
 
 async function run_confess(ctx) {
   const directMessage = ctx.interaction.options.getString("message");
+  const attachment = ctx.interaction.options.getAttachment("file");
 
-  if (!directMessage) {
+  if (!directMessage && !attachment) {
     return await showConfessionModal(ctx.interaction);
   }
 
-  const confession = directMessage.trim();
-  if (!confession) {
-    return await ctx.reply("Your confession cannot be empty.", true);
-  }
+  const confession = directMessage?.trim() || "";
 
   try {
-    await sendConfession(ctx.guild, confession, ctx.user.id);
+    await sendConfession(ctx.guild, confession, ctx.user.id, attachment);
     await ctx.reply("✅ Your confession was sent anonymously.", true);
   } catch (error) {
     console.error("Confession error:", error);
@@ -421,6 +451,87 @@ async function handleConfessionModal(interaction) {
   }
 }
 
+async function showSecretReplyModal(interaction, senderToken) {
+  const modal = new ModalBuilder()
+    .setCustomId("secret_reply_modal:" + senderToken)
+    .setTitle("Secret Reply");
+
+  const input = new TextInputBuilder()
+    .setCustomId("secret_reply_text")
+    .setLabel("Your secret reply")
+    .setStyle(TextInputStyle.Paragraph)
+    .setPlaceholder("Write your reply...")
+    .setRequired(true)
+    .setMaxLength(2000);
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(input)
+  );
+
+  await interaction.showModal(modal);
+}
+
+async function handleSecretReplyModal(interaction) {
+  const customId = interaction.customId;
+  const prefix = "secret_reply_modal:";
+  if (!customId.startsWith(prefix)) {
+    return await interaction.reply({
+      content: "This reply request is invalid.",
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  const senderId = decodeConfessionSender(customId.slice(prefix.length));
+  if (!senderId) {
+    return await interaction.reply({
+      content: "I couldn't identify the confession sender.",
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  const replyText = interaction.fields.getTextInputValue("secret_reply_text")?.trim();
+  if (!replyText) {
+    return await interaction.reply({
+      content: "Your secret reply cannot be empty.",
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  const sender = await client.users.fetch(senderId).catch(() => null);
+  if (!sender) {
+    return await interaction.reply({
+      content: "I couldn't find the confession sender.",
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  try {
+    await sender.send({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("💬 Secret Reply")
+          .setDescription(replyText)
+          .addFields({
+            name: "Reply to",
+            value: "An anonymous confession"
+          })
+          .setColor("#000000")
+      ]
+    });
+
+    await interaction.reply({
+      content: "✅ Your secret reply was sent privately to the person who made the confession.",
+      flags: MessageFlags.Ephemeral
+    });
+  } catch (error) {
+    console.error("Secret reply DM error:", error);
+    await interaction.reply({
+      content: "❌ I couldn't send the secret reply. The confession sender may have DMs disabled or may have blocked the bot.",
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
+
 async function deployCommands() {
   if (!DEPLOY_COMMANDS) {
     console.log("ℹ️ Automatic command deployment is disabled.");
@@ -495,12 +606,23 @@ client.on(Events.InteractionCreate, async interaction => {
       return await run_show_confess(interaction);
     }
 
-    if (interaction.isButton() && interaction.customId === "submit_confession") {
+    if (interaction.isButton() && interaction.customId.startsWith("submit_confession:")) {
       return await showConfessionModal(interaction);
+    }
+
+    if (interaction.isButton() && interaction.customId.startsWith("secret_reply:")) {
+      return await showSecretReplyModal(
+        interaction,
+        interaction.customId.slice("secret_reply:".length)
+      );
     }
 
     if (interaction.isModalSubmit() && interaction.customId === "confession_modal") {
       return await handleConfessionModal(interaction);
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("secret_reply_modal:")) {
+      return await handleSecretReplyModal(interaction);
     }
 
     if (!interaction.isChatInputCommand()) return;
