@@ -253,13 +253,17 @@ async function sendConfession(guild, confession, authorId, attachment = null) {
   };
 
   if (attachment) {
+    const attachmentName = attachment.name || "confession-file";
+
     payload.files = [{
       attachment: attachment.url,
-      name: attachment.name || "confession-file"
+      name: attachmentName
     }];
 
     if (attachment.contentType?.startsWith("image/")) {
-      embed.setImage(attachment.url);
+      // Reference the uploaded attachment from the embed so Discord
+      // renders the image once instead of showing a duplicate image preview.
+      embed.setImage("attachment://" + attachmentName);
     } else {
       embed.addFields({
         name: "Attachment",
