@@ -6,6 +6,7 @@ import {
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
   ModalBuilder, TextInputBuilder, TextInputStyle
 } from "discord.js";
+import crypto from "node:crypto";
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
@@ -166,13 +167,63 @@ function createConfessionEmbed(confession) {
     .setFooter({ text: "Want to submit one? Use the button below." });
 }
 
-function createConfessionButtonRow() {
+function getConfessionCryptoKey() {
+  return crypto.createHash("sha256").update(TOKEN).digest();
+}
+
+function encodeConfessionSender(userId) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", getConfessionCryptoKey(), iv);
+  const encrypted = Buffer.concat([
+    cipher.update(String(userId), "utf8"),
+    cipher.final()
+  ]);
+  const tag = cipher.getAuthTag();
+
+  return Buffer.concat([iv, tag, encrypted]).toString("base64url");
+}
+
+function decodeConfessionSender(value) {
+  try {
+    const raw = Buffer.from(value, "base64url");
+    if (raw.length < 29) return null;
+
+    const iv = raw.subarray(0, 12);
+    const tag = raw.subarray(12, 28);
+    const encrypted = raw.subarray(28);
+
+    const decipher = crypto.createDecipheriv("aes-256-gcm", getConfessionCryptoKey(), iv);
+    decipher.setAuthTag(tag);
+
+    return Buffer.concat([
+      decipher.update(encrypted),
+      decipher.final()
+    ]).toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
+function createConfessionButtonRow(authorId) {
+  const senderToken = encodeConfessionSender(authorId);
+
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("submit_confession")
+      .setCustomId("submit_confession:" + senderToken)
       .setLabel("Submit a Confession")
       .setStyle(ButtonStyle.Secondary)
   );
+}
+
+function getEncodedSenderFromMessage(message) {
+  const customId = message?.components
+    ?.flatMap(row => row.components || [])
+    ?.find(component =>
+      typeof component.customId === "string" &&
+      component.customId.startsWith("submit_confession:")
+    )?.customId;
+
+  return customId ? decodeConfessionSender(customId.slice("submit_confession:".length)) : null;
 }
 
 async function sendConfession(guild, confession, authorId) {
@@ -184,7 +235,7 @@ async function sendConfession(guild, confession, authorId) {
 
   const sentMessage = await confessionChannel.send({
     embeds: [createConfessionEmbed(confession)],
-    components: [createConfessionButtonRow()]
+    components: [createConfessionButtonRow(authorId)]
   });
 
   const confessions = await loadConfessions();
@@ -267,10 +318,11 @@ async function run_show_confess(interaction) {
 
   const confessions = await loadConfessions();
   const record = confessions[targetMessage.id];
+  const recoveredUserId = record?.userId || getEncodedSenderFromMessage(targetMessage);
 
-  if (!record?.userId) {
+  if (!recoveredUserId) {
     return await interaction.reply({
-      content: "I couldn't find who sent this confession.",
+      content: "I couldn't find who sent this confession. This confession was probably created before sender tracking was added.",
       flags: MessageFlags.Ephemeral
     });
   }
