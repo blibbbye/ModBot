@@ -15,6 +15,7 @@ const SHOW_CONFESS_IDS = new Set([
   "926417866922811392"
 ]);
 const CONFESSIONS_CHANNEL_NAME = process.env.CONFESSIONS_CHANNEL_NAME || "🤫・confessions";
+const ACTIONS_CHANNEL_NAME = process.env.ACTIONS_CHANNEL_NAME || "actions";
 const CONFESSIONS_FILE = "./confessions.json";
 const DEPLOY_COMMANDS = (process.env.DEPLOY_COMMANDS || "true").toLowerCase() !== "false";
 if (!TOKEN) throw new Error("Missing DISCORD_TOKEN in .env");
@@ -275,23 +276,55 @@ async function run_show_confess(interaction) {
     });
   }
 
+  const actionsChannel = interaction.guild?.channels.cache.find(
+    channel =>
+      channel.type === ChannelType.GuildText &&
+      channel.name === ACTIONS_CHANNEL_NAME
+  );
+
+  if (!actionsChannel) {
+    return await interaction.reply({
+      content: "I couldn't find the private " + ACTIONS_CHANNEL_NAME + " channel.",
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  const sender = await client.users.fetch(record.userId).catch(() => null);
   const confessionText =
     targetMessage.embeds?.[0]?.description ||
     targetMessage.content ||
     "(No confession text found.)";
 
-  await interaction.reply({
+  await actionsChannel.send({
+    content: interaction.user.toString() + " used /showconfess",
+    allowedMentions: { users: [interaction.user.id] },
     embeds: [
       new EmbedBuilder()
         .setTitle("🔎 Confession Details")
         .setDescription(confessionText)
-        .addFields({
-          name: "Sender User ID",
-          value: record.userId,
-          inline: false
-        })
+        .addFields(
+          {
+            name: "Confession sent by",
+            value: sender ? sender.toString() : "Unknown user",
+            inline: true
+          },
+          {
+            name: "Sender User ID",
+            value: record.userId,
+            inline: true
+          },
+          {
+            name: "Confession Message ID",
+            value: targetMessage.id,
+            inline: false
+          }
+        )
         .setColor("#000000")
-    ],
+    ]
+  });
+
+  await interaction.reply({
+    content: "✅ Confession details were sent to #" + ACTIONS_CHANNEL_NAME + ".",
     flags: MessageFlags.Ephemeral
   });
 }
