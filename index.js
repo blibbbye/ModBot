@@ -219,7 +219,7 @@ function createConfessionButtonRow(authorId) {
       .setLabel("Submit a Confession")
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
-      .setCustomId("secret_reply:" + senderToken)
+      .setCustomId("secret_reply")
       .setLabel("Secret Reply")
       .setStyle(ButtonStyle.Secondary)
   );
@@ -455,11 +455,18 @@ async function handleConfessionModal(interaction) {
   }
 }
 
-async function showSecretReplyModal(interaction, senderToken) {
+async function showSecretReplyModal(interaction) {
   const targetMessageId = interaction.message?.id || "";
 
+  if (!targetMessageId) {
+    return await interaction.reply({
+      content: "I couldn't identify the confession.",
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
   const modal = new ModalBuilder()
-    .setCustomId("secret_reply_modal:" + targetMessageId + ":" + senderToken)
+    .setCustomId("secret_reply_modal:" + targetMessageId)
     .setTitle("Secret Reply");
 
   const input = new TextInputBuilder()
@@ -478,36 +485,16 @@ async function showSecretReplyModal(interaction, senderToken) {
 }
 
 async function handleSecretReplyModal(interaction) {
-  const customId = interaction.customId;
   const prefix = "secret_reply_modal:";
 
-  if (!customId.startsWith(prefix)) {
+  if (!interaction.customId.startsWith(prefix)) {
     return await interaction.reply({
       content: "This reply request is invalid.",
       flags: MessageFlags.Ephemeral
     });
   }
 
-  const payload = customId.slice(prefix.length);
-  const separator = payload.indexOf(":");
-
-  if (separator === -1) {
-    return await interaction.reply({
-      content: "This reply request is invalid.",
-      flags: MessageFlags.Ephemeral
-    });
-  }
-
-  const confessionMessageId = payload.slice(0, separator);
-  const senderToken = payload.slice(separator + 1);
-  const senderId = decodeConfessionSender(senderToken);
-
-  if (!senderId) {
-    return await interaction.reply({
-      content: "I couldn't identify the confession sender.",
-      flags: MessageFlags.Ephemeral
-    });
-  }
+  const confessionMessageId = interaction.customId.slice(prefix.length);
 
   const replyText = interaction.fields.getTextInputValue("secret_reply_text")?.trim();
 
@@ -527,29 +514,34 @@ async function handleSecretReplyModal(interaction) {
     });
   }
 
-  let confessionMessage = null;
+  const confessionMessage = await confessionChannel.messages.fetch(confessionMessageId).catch(() => null);
 
-  if (confessionChannel.messages?.fetch) {
-    confessionMessage = await confessionChannel.messages.fetch(confessionMessageId).catch(() => null);
-  }
-
-  if (!confessionMessage || confessionMessage.channel.id !== confessionChannel.id) {
+  if (!confessionMessage) {
     return await interaction.reply({
       content: "I couldn't find the original confession.",
       flags: MessageFlags.Ephemeral
     });
   }
 
-  try {
-    let thread;
+  const confessions = await loadConfessions();
+  const record = confessions[confessionMessageId];
+  const senderId = record?.userId || getEncodedSenderFromMessage(confessionMessage);
 
-    // Reuse an existing public thread attached to this confession when possible.
-    if (confessionMessage.thread) {
-      thread = confessionMessage.thread;
-      if (thread.archived) {
-        await thread.setArchived(false).catch(() => null);
-      }
-    } else {
+  if (!senderId) {
+    return await interaction.reply({
+      content: "I couldn't identify the confession sender.",
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  try {
+    let thread = confessionMessage.thread;
+
+    if (thread?.archived) {
+      await thread.setArchived(false).catch(() => null);
+    }
+
+    if (!thread) {
       thread = await confessionMessage.startThread({
         name: "Secret Reply",
         autoArchiveDuration: 1440,
@@ -557,8 +549,6 @@ async function handleSecretReplyModal(interaction) {
       });
     }
 
-    // The thread is PUBLIC. Everyone can enter and read it.
-    // Only ModBot posts the actual reply, so the responder's identity is not exposed.
     await thread.send({
       embeds: [
         new EmbedBuilder()
@@ -570,7 +560,6 @@ async function handleSecretReplyModal(interaction) {
       allowedMentions: { parse: [] }
     });
 
-    const confessions = await loadConfessions();
     if (confessions[confessionMessageId]) {
       confessions[confessionMessageId] = {
         ...confessions[confessionMessageId],
@@ -580,6 +569,8 @@ async function handleSecretReplyModal(interaction) {
       await saveConfessions(confessions);
     }
 
+    // The thread is public: anyone can enter/read it. The responder's identity
+    // is not exposed because ModBot is the only account posting the reply.
     await interaction.reply({
       content: "✅ The anonymous reply was posted in the public confession thread.",
       flags: MessageFlags.Ephemeral
@@ -593,7 +584,6 @@ async function handleSecretReplyModal(interaction) {
     });
   }
 }
-
 async function deployCommands() {
   if (!DEPLOY_COMMANDS) {
     console.log("ℹ️ Automatic command deployment is disabled.");
@@ -672,11 +662,8 @@ client.on(Events.InteractionCreate, async interaction => {
       return await showConfessionModal(interaction);
     }
 
-    if (interaction.isButton() && interaction.customId.startsWith("secret_reply:")) {
-      return await showSecretReplyModal(
-        interaction,
-        interaction.customId.slice("secret_reply:".length)
-      );
+    if (interaction.isButton() && interaction.customId === "secret_reply") {
+      return await showSecretReplyModal(interaction);
     }
 
     if (interaction.isModalSubmit() && interaction.customId === "confession_modal") {
