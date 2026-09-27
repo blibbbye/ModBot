@@ -478,6 +478,7 @@ async function showSecretReplyModal(interaction, senderToken) {
 async function handleSecretReplyModal(interaction) {
   const customId = interaction.customId;
   const prefix = "secret_reply_modal:";
+
   if (!customId.startsWith(prefix)) {
     return await interaction.reply({
       content: "This reply request is invalid.",
@@ -501,36 +502,71 @@ async function handleSecretReplyModal(interaction) {
     });
   }
 
-  const sender = await client.users.fetch(senderId).catch(() => null);
-  if (!sender) {
+  const confessionChannel = findConfessionsChannel(interaction.guild);
+  if (!confessionChannel) {
     return await interaction.reply({
-      content: "I couldn't find the confession sender.",
+      content: "I couldn't find the confessions channel.",
       flags: MessageFlags.Ephemeral
     });
   }
 
+  const token = customId.slice(prefix.length);
+  let thread;
+
   try {
-    await sender.send({
-      embeds: [
-        new EmbedBuilder()
-          .setTitle("💬 Secret Reply")
-          .setDescription(replyText)
-          .addFields({
-            name: "Reply to",
-            value: "An anonymous confession"
-          })
-          .setColor("#000000")
-      ]
+    // Create a private thread in the confessions channel. It is not a public
+    // thread, so normal members cannot browse the conversation.
+    thread = await confessionChannel.threads.create({
+      name: "Secret Reply",
+      type: ChannelType.PrivateThread,
+      invitable: false,
+      autoArchiveDuration: 1440,
+      reason: "Secret reply to an anonymous confession"
     });
 
+    // Only the bot, the confession sender and the person replying are members.
+    await thread.members.add(senderId);
+    await thread.members.add(interaction.user.id);
+
+    await thread.send({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("🤫 Secret Reply")
+          .setDescription(replyText)
+          .setFooter({ text: "Private confession conversation" })
+          .setColor("#000000")
+      ],
+      allowedMentions: { parse: [] }
+    });
+
+    // Store the thread ID so future replies can identify/reuse the same thread.
+    const confessions = await loadConfessions();
+    const confessionRecord = Object.entries(confessions).find(([, record]) =>
+      record?.userId === senderId
+    );
+
+    if (confessionRecord) {
+      const [messageId] = confessionRecord;
+      confessions[messageId] = {
+        ...confessions[messageId],
+        lastSecretReplyThreadId: thread.id
+      };
+      await saveConfessions(confessions);
+    }
+
     await interaction.reply({
-      content: "✅ Your secret reply was sent privately to the person who made the confession.",
+      content: "✅ A private Secret Reply thread was created. Only the confession sender and participants can access it.",
       flags: MessageFlags.Ephemeral
     });
   } catch (error) {
-    console.error("Secret reply DM error:", error);
+    console.error("Secret reply thread error:", error);
+
+    if (thread) {
+      await thread.delete("Clean up failed secret reply thread").catch(() => null);
+    }
+
     await interaction.reply({
-      content: "❌ I couldn't send the secret reply. The confession sender may have DMs disabled or may have blocked the bot.",
+      content: "❌ I couldn't create the private Secret Reply thread. Make sure ModBot has permission to create and manage private threads in the confessions channel.",
       flags: MessageFlags.Ephemeral
     });
   }
