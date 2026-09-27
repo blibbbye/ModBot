@@ -332,6 +332,11 @@ async function run_show_confess(interaction) {
     targetMessage.content ||
     "(No confession text found.)";
 
+  const sender = await client.users.fetch(recoveredUserId).catch(() => null);
+  const senderDisplay = sender
+    ? sender.toString() + " (" + sender.username + ")"
+    : "Unknown user";
+
   const detailsEmbed = new EmbedBuilder()
     .setTitle("🔎 Confession Details")
     .setDescription(confessionText)
@@ -343,12 +348,12 @@ async function run_show_confess(interaction) {
       },
       {
         name: "Confession sent by",
-        value: record.userId,
+        value: senderDisplay,
         inline: true
       },
       {
         name: "Sender User ID",
-        value: record.userId,
+        value: recoveredUserId,
         inline: false
       },
       {
