@@ -91,7 +91,7 @@ const commands = [
         .setRequired(false)
     ),
   new ContextMenuCommandBuilder()
-    .setName("restartbot()")
+    .setName("warnconfessionsender")
     .setType(ApplicationCommandType.Message)
     .setDefaultMemberPermissions("8192")
 ]
