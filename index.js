@@ -645,6 +645,13 @@ function isMainCoOwner(interaction) {
   return interaction.user?.id === "863446773326151700";
 }
 
+async function rejectSecondCoOwnerSobCommand(ctx) {
+  if (ctx.interaction?.user?.id === "926417866922811392") {
+    return await ctx.reply("Hahaha you thought Moo Moo lil bro :sob:", true);
+  }
+  return false;
+}
+
 async function addSobReaction(message) {
   if (!message?.guild) return;
 
@@ -696,6 +703,7 @@ async function reactToTodaysMessages(channel) {
 }
 
 async function run_sob(ctx) {
+  if (await rejectSecondCoOwnerSobCommand(ctx)) return;
   if (!isMainCoOwner(ctx.interaction)) {
     return await ctx.reply("You don't have permission to use this.", true);
   }
@@ -726,6 +734,7 @@ async function run_sob(ctx) {
 }
 
 async function run_stopsob(ctx) {
+  if (await rejectSecondCoOwnerSobCommand(ctx)) return;
   if (!isMainCoOwner(ctx.interaction)) {
     return await ctx.reply("You don't have permission to use this.", true);
   }
@@ -751,6 +760,7 @@ async function run_stopsob(ctx) {
 }
 
 async function run_unsob(ctx) {
+  if (await rejectSecondCoOwnerSobCommand(ctx)) return;
   if (!isMainCoOwner(ctx.interaction)) {
     return await ctx.reply("You don't have permission to use this.", true);
   }
