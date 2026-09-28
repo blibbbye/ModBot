@@ -910,6 +910,21 @@ async function detectJoinMethod(guild) {
   };
 }
 
+
+async function getActionsChannel(guild) {
+  const channels = await guild.channels.fetch();
+  return channels.find(channel =>
+    channel &&
+    channel.type === ChannelType.GuildText &&
+    channel.name === ACTIONS_CHANNEL_NAME
+  ) || null;
+}
+
+function formatAccountCreated(user) {
+  if (!user || !user.createdAt) return "Unknown";
+  return user.createdAt.toISOString();
+}
+
 async function deployCommands() {
   if (!DEPLOY_COMMANDS) {
     console.log("ℹ️ Automatic command deployment is disabled.");
