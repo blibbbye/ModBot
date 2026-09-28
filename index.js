@@ -1106,8 +1106,24 @@ client.once(Events.ClientReady, async readyClient => {
     console.error("❌ Command deployment failed:", error);
   }
 
+  for (const guild of readyClient.guilds.cache.values()) {
+    await cacheInvites(guild);
+  }
+
   await updateMemberCountChannels();
   setInterval(updateMemberCountChannels, 60 * 1000);
+});
+
+client.on(Events.InviteCreate, async invite => {
+  if (invite.guild) await cacheInvites(invite.guild);
+});
+
+client.on(Events.InviteDelete, async invite => {
+  if (invite.guild) await cacheInvites(invite.guild);
+});
+
+client.on(Events.GuildMemberAdd, async member => {
+  await logMemberJoin(member);
 });
 
 client.on(Events.MessageCreate, async message => {
