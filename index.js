@@ -20,6 +20,8 @@ const CONFESSIONS_FILE = "./confessions.json";
 const SOB_FILE = "./sob_channels.json";
 const SOB_EMOJI = "😭";
 const SOB_TIME_ZONE = process.env.SOB_TIME_ZONE || "Europe/Stockholm";
+const ACTIONS_CHANNEL_NAME = "actions";
+const INVITE_CACHE_FILE = "./invite_cache.json";
 const DEPLOY_COMMANDS = (process.env.DEPLOY_COMMANDS || "true").toLowerCase() !== "false";
 if (!TOKEN) throw new Error("Missing DISCORD_TOKEN in .env");
 if (!CLIENT_ID) throw new Error("Missing DISCORD_CLIENT_ID in .env");
@@ -27,7 +29,9 @@ if (!CLIENT_ID) throw new Error("Missing DISCORD_CLIENT_ID in .env");
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildInvites
   ]
 });
 
