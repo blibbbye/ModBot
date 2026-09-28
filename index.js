@@ -801,6 +801,115 @@ async function run_unsob(ctx) {
   );
 }
 
+
+async function loadInviteCache() {
+  try {
+    const { readFile } = await import("node:fs/promises");
+    return JSON.parse(await readFile(INVITE_CACHE_FILE, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+async function saveInviteCache(data) {
+  const { writeFile } = await import("node:fs/promises");
+  await writeFile(INVITE_CACHE_FILE, JSON.stringify(data, null, 2), "utf8");
+}
+
+async function getInviteSnapshot(guild) {
+  try {
+    const invites = await guild.invites.fetch();
+    const result = {};
+
+    for (const invite of invites.values()) {
+      result[invite.code] = {
+        uses: Number(invite.uses || 0),
+        inviterId: invite.inviterId || null,
+        channelId: invite.channelId || null,
+        createdAt: invite.createdAt?.toISOString?.() || null,
+        maxUses: invite.maxUses ?? null,
+        maxAge: invite.maxAge ?? null,
+        temporary: invite.temporary ?? null,
+        type: invite.type ?? null,
+        targetType: invite.targetType ?? null
+      };
+    }
+
+    let vanityUses = null;
+    try {
+      const vanity = await guild.fetchVanityData();
+      vanityUses = Number(vanity?.uses || 0);
+    } catch {}
+
+    return { invites: result, vanityUses };
+  } catch (error) {
+    console.error("Could not fetch invites for " + guild.name + ":", error.message);
+    return null;
+  }
+}
+
+async function cacheInvites(guild) {
+  const snapshot = await getInviteSnapshot(guild);
+  if (!snapshot) return;
+
+  const cache = await loadInviteCache();
+  cache[guild.id] = { ...snapshot, updatedAt: new Date().toISOString() };
+  await saveInviteCache(cache);
+}
+
+async function detectJoinMethod(guild) {
+  const cache = await loadInviteCache();
+  const before = cache[guild.id] || { invites: {}, vanityUses: null };
+  const after = await getInviteSnapshot(guild);
+
+  if (!after) {
+    return { method: "Unknown", reason: "Invite list could not be read." };
+  }
+
+  const increased = [];
+
+  for (const [code, invite] of Object.entries(after.invites)) {
+    const oldUses = before.invites?.[code]?.uses ?? 0;
+    if ((invite.uses ?? 0) > oldUses) {
+      increased.push({ code, invite });
+    }
+  }
+
+  cache[guild.id] = { ...after, updatedAt: new Date().toISOString() };
+  await saveInviteCache(cache);
+
+  if (increased.length === 1) {
+    return {
+      method: "Discord invite",
+      code: increased[0].code,
+      invite: increased[0].invite
+    };
+  }
+
+  if (increased.length > 1) {
+    return {
+      method: "Invite - could not determine exactly",
+      candidates: increased
+    };
+  }
+
+  if (
+    typeof before.vanityUses === "number" &&
+    typeof after.vanityUses === "number" &&
+    after.vanityUses > before.vanityUses
+  ) {
+    return {
+      method: "Server vanity invite",
+      vanityDelta: after.vanityUses - before.vanityUses
+    };
+  }
+
+  return {
+    method: "Unknown / not attributable",
+    reason: "No invite-use increase was detected."
+  };
+}
+
 async function deployCommands() {
   if (!DEPLOY_COMMANDS) {
     console.log("ℹ️ Automatic command deployment is disabled.");
