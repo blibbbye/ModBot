@@ -102,8 +102,11 @@ const commands = [
     .setName("sob")
     .setDescription("React 😭 to every message sent today in this channel"),
   new SlashCommandBuilder()
+    .setName("stopsob")
+    .setDescription("Stop future 😭 reactions in this channel"),
+  new SlashCommandBuilder()
     .setName("unsob")
-    .setDescription("Stop sob mode in this channel"),
+    .setDescription("Stop sob mode and remove ModBot's 😭 reactions in this channel"),
   new ContextMenuCommandBuilder()
     .setName("warnconfessionsender")
     .setType(ApplicationCommandType.Message)
@@ -718,13 +721,13 @@ async function run_sob(ctx) {
   );
 }
 
-async function run_unsob(ctx) {
+async function run_stopsob(ctx) {
   if (!isMainCoOwner(ctx.interaction)) {
     return await ctx.reply("You don't have permission to use this.", true);
   }
 
   if (!ctx.guild || !ctx.channel?.isTextBased?.()) {
-    return await ctx.reply("Use /unsob inside a server text channel.", true);
+    return await ctx.reply("Use /stopsob inside a server text channel.", true);
   }
 
   const sobChannels = await loadSobChannels();
@@ -738,7 +741,58 @@ async function run_unsob(ctx) {
   await saveSobChannels(sobChannels);
 
   await ctx.reply(
-    "✅ Sob mode is off in #" + ctx.channel.name + ".",
+    "✅ Sob mode stopped in #" + ctx.channel.name + ". Existing 😭 reactions were left in place.",
+    true
+  );
+}
+
+async function run_unsob(ctx) {
+  if (!isMainCoOwner(ctx.interaction)) {
+    return await ctx.reply("You don't have permission to use this.", true);
+  }
+
+  if (!ctx.guild || !ctx.channel?.isTextBased?.()) {
+    return await ctx.reply("Use /unsob inside a server text channel.", true);
+  }
+
+  const sobChannels = await loadSobChannels();
+  if (sobChannels[ctx.guild.id]?.channelId === ctx.channel.id) {
+    delete sobChannels[ctx.guild.id];
+    await saveSobChannels(sobChannels);
+  }
+
+  let before;
+  let removed = 0;
+
+  while (true) {
+    const batch = await ctx.channel.messages.fetch({
+      limit: 100,
+      ...(before ? { before } : {})
+    });
+
+    if (!batch.size) break;
+
+    for (const message of batch.values()) {
+      const reaction = message.reactions.cache.get(SOB_EMOJI);
+      if (!reaction) continue;
+
+      try {
+        if (client.user) {
+          await reaction.users.remove(client.user.id);
+          removed++;
+        }
+      } catch (error) {
+        console.error("❌ Could not clear sob reaction on " + message.id + ":", error.message);
+      }
+    }
+
+    const oldest = batch.last();
+    if (!oldest) break;
+    before = oldest.id;
+  }
+
+  await ctx.reply(
+    "✅ Sob mode is off in #" + ctx.channel.name + ". Cleared ModBot's 😭 reactions from " + removed + " message(s).",
     true
   );
 }
@@ -901,6 +955,7 @@ client.on(Events.InteractionCreate, async interaction => {
     if (interaction.commandName === "help") return await run_help(ctx);
     if (interaction.commandName === "confess") return await run_confess(ctx);
     if (interaction.commandName === "sob") return await run_sob(ctx);
+    if (interaction.commandName === "stopsob") return await run_stopsob(ctx);
     if (interaction.commandName === "unsob") return await run_unsob(ctx);
   } catch (error) {
     console.error("Command error:", error);
