@@ -21,7 +21,12 @@ const DEPLOY_COMMANDS = (process.env.DEPLOY_COMMANDS || "true").toLowerCase() !=
 if (!TOKEN) throw new Error("Missing DISCORD_TOKEN in .env");
 if (!CLIENT_ID) throw new Error("Missing DISCORD_CLIENT_ID in .env");
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages
+  ]
+});
 
 function sleep(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
 function randomPick(arr){ return arr?.length ? arr[Math.floor(Math.random()*arr.length)] : ""; }
@@ -90,6 +95,12 @@ const commands = [
         .setDescription("Optional image or file to attach to the confession")
         .setRequired(false)
     ),
+  new SlashCommandBuilder()
+    .setName("sob")
+    .setDescription("React 😭 to every message sent today in this channel"),
+  new SlashCommandBuilder()
+    .setName("unsob")
+    .setDescription("Stop sob mode in this channel"),
   new ContextMenuCommandBuilder()
     .setName("warnconfessionsender")
     .setType(ApplicationCommandType.Message)
@@ -594,6 +605,141 @@ async function handleSecretReplyModal(interaction) {
     });
   }
 }
+
+async function loadSobChannels() {
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const raw = await readFile(SOB_FILE, "utf8");
+    const data = JSON.parse(raw);
+    return data && typeof data === "object" ? data : {};
+  } catch {
+    return {};
+  }
+}
+
+async function saveSobChannels(data) {
+  const { writeFile } = await import("node:fs/promises");
+  await writeFile(SOB_FILE, JSON.stringify(data, null, 2), "utf8");
+}
+
+function getSobDayKey(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: SOB_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(date);
+}
+
+function isMainCoOwner(interaction) {
+  return interaction.user?.id === "863446773326151700";
+}
+
+async function addSobReaction(message) {
+  if (!message?.guild) return;
+
+  try {
+    await message.react(SOB_EMOJI);
+  } catch (error) {
+    console.error(
+      "❌ Could not add sob reaction to message " + message.id + ":",
+      error.message
+    );
+  }
+}
+
+async function reactToTodaysMessages(channel) {
+  if (!channel?.messages?.fetch) return 0;
+
+  const today = getSobDayKey();
+  let before;
+  let reacted = 0;
+
+  while (true) {
+    const batch = await channel.messages.fetch({
+      limit: 100,
+      ...(before ? { before } : {})
+    });
+
+    if (!batch.size) break;
+
+    let reachedYesterday = false;
+
+    for (const message of batch.values()) {
+      if (getSobDayKey(message.createdAt) !== today) {
+        reachedYesterday = true;
+        break;
+      }
+
+      await addSobReaction(message);
+      reacted++;
+    }
+
+    if (reachedYesterday) break;
+
+    const oldest = batch.last();
+    if (!oldest) break;
+    before = oldest.id;
+  }
+
+  return reacted;
+}
+
+async function run_sob(ctx) {
+  if (!isMainCoOwner(ctx.interaction)) {
+    return await ctx.reply("You don't have permission to use this.", true);
+  }
+
+  if (!ctx.guild || !ctx.channel?.isTextBased?.()) {
+    return await ctx.reply("Use /sob inside a server text channel.", true);
+  }
+
+  const today = getSobDayKey();
+  const sobChannels = await loadSobChannels();
+
+  sobChannels[ctx.guild.id] = {
+    channelId: ctx.channel.id,
+    day: today,
+    enabledAt: new Date().toISOString()
+  };
+
+  await saveSobChannels(sobChannels);
+
+  const reacted = await reactToTodaysMessages(ctx.channel);
+
+  await ctx.reply(
+    "😭 Sob mode is on in #" + ctx.channel.name +
+    " for today. I reacted to " + reacted +
+    " message(s) already sent today and will react to every new message here for the rest of today.",
+    true
+  );
+}
+
+async function run_unsob(ctx) {
+  if (!isMainCoOwner(ctx.interaction)) {
+    return await ctx.reply("You don't have permission to use this.", true);
+  }
+
+  if (!ctx.guild || !ctx.channel?.isTextBased?.()) {
+    return await ctx.reply("Use /unsob inside a server text channel.", true);
+  }
+
+  const sobChannels = await loadSobChannels();
+  const state = sobChannels[ctx.guild.id];
+
+  if (!state || state.channelId !== ctx.channel.id || state.day !== getSobDayKey()) {
+    return await ctx.reply("😭 Sob mode isn't active in this channel.", true);
+  }
+
+  delete sobChannels[ctx.guild.id];
+  await saveSobChannels(sobChannels);
+
+  await ctx.reply(
+    "✅ Sob mode is off in #" + ctx.channel.name + ".",
+    true
+  );
+}
+
 async function deployCommands() {
   if (!DEPLOY_COMMANDS) {
     console.log("ℹ️ Automatic command deployment is disabled.");
@@ -694,6 +840,31 @@ client.once(Events.ClientReady, async readyClient => {
   setInterval(updateMemberCountChannels, 60 * 1000);
 });
 
+client.on(Events.MessageCreate, async message => {
+  if (!message.guild) return;
+
+  try {
+    const sobChannels = await loadSobChannels();
+    const state = sobChannels[message.guild.id];
+
+    if (!state) return;
+
+    const today = getSobDayKey();
+
+    if (state.day !== today) {
+      delete sobChannels[message.guild.id];
+      await saveSobChannels(sobChannels);
+      return;
+    }
+
+    if (state.channelId !== message.channel.id) return;
+
+    await addSobReaction(message);
+  } catch (error) {
+    console.error("❌ Sob message handler error:", error);
+  }
+});
+
 client.on(Events.InteractionCreate, async interaction => {
   try {
     if (interaction.isMessageContextMenuCommand() && interaction.commandName === "warnconfessionsender") {
@@ -726,6 +897,8 @@ client.on(Events.InteractionCreate, async interaction => {
     if (interaction.commandName === "facts") return await run_facts(ctx);
     if (interaction.commandName === "help") return await run_help(ctx);
     if (interaction.commandName === "confess") return await run_confess(ctx);
+    if (interaction.commandName === "sob") return await run_sob(ctx);
+    if (interaction.commandName === "unsob") return await run_unsob(ctx);
   } catch (error) {
     console.error("Command error:", error);
     const payload={content:"Something went wrong while running that command.",flags:MessageFlags.Ephemeral};
