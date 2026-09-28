@@ -91,9 +91,8 @@ const commands = [
         .setRequired(false)
     ),
   new ContextMenuCommandBuilder()
-    .setName("warnconfessionsender")
+    .setName("showconfess")
     .setType(ApplicationCommandType.Message)
-    .setDefaultMemberPermissions("8192")
 ]
 
 async function run_unreleased(ctx) {
@@ -352,13 +351,24 @@ async function run_show_confess(interaction) {
 
   const confessions = await loadConfessions();
   const record = confessions[targetMessage.id];
-  const recoveredUserId = record?.userId || getEncodedSenderFromMessage(targetMessage);
+  const recoveredUserId =
+    record?.userId ||
+    getEncodedSenderFromMessage(targetMessage);
 
   if (!recoveredUserId) {
     return await interaction.reply({
       content: "I couldn't find who sent this confession. This confession was probably created before sender tracking was added.",
       flags: MessageFlags.Ephemeral
     });
+  }
+
+  if (!record?.userId && recoveredUserId) {
+    confessions[targetMessage.id] = {
+      ...(record || {}),
+      userId: recoveredUserId,
+      recoveredAt: new Date().toISOString()
+    };
+    await saveConfessions(confessions).catch(() => null);
   }
 
   const confessionText =
@@ -598,6 +608,38 @@ async function deployCommands() {
       Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
       { body: commandData }
     );
+
+    try {
+      const guildCommands = await rest.get(
+        Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID)
+      );
+      const showConfessCommand = Array.isArray(guildCommands)
+        ? guildCommands.find(command => command.name === "showconfess")
+        : null;
+
+      if (showConfessCommand?.id) {
+        await rest.put(
+          Routes.applicationCommandPermissions(
+            CLIENT_ID,
+            GUILD_ID,
+            showConfessCommand.id
+          ),
+          {
+            body: {
+              permissions: [...SHOW_CONFESS_IDS].map(id => ({
+                id,
+                type: 2,
+                permission: true
+              }))
+            }
+          }
+        );
+        console.log("✅ showconfess restricted to the configured users.");
+      }
+    } catch (permissionError) {
+      console.error("⚠️ Could not apply showconfess user permissions:", permissionError.message);
+    }
+
     console.log("✅ Deployed " + commandData.length + " commands to guild " + GUILD_ID + ".");
   } else {
     await rest.put(
