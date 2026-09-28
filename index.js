@@ -17,6 +17,9 @@ const SHOW_CONFESS_IDS = new Set([
 ]);
 const CONFESSIONS_CHANNEL_NAME = process.env.CONFESSIONS_CHANNEL_NAME || "🤫・confessions";
 const CONFESSIONS_FILE = "./confessions.json";
+const SOB_FILE = "./sob_channels.json";
+const SOB_EMOJI = "😭";
+const SOB_TIME_ZONE = process.env.SOB_TIME_ZONE || "Europe/Stockholm";
 const DEPLOY_COMMANDS = (process.env.DEPLOY_COMMANDS || "true").toLowerCase() !== "false";
 if (!TOKEN) throw new Error("Missing DISCORD_TOKEN in .env");
 if (!CLIENT_ID) throw new Error("Missing DISCORD_CLIENT_ID in .env");
