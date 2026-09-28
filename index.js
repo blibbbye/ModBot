@@ -925,6 +925,91 @@ function formatAccountCreated(user) {
   return user.createdAt.toISOString();
 }
 
+
+async function logMemberJoin(member) {
+  try {
+    const guild = member.guild;
+    const actions = await getActionsChannel(guild);
+
+    if (!actions) {
+      console.error("Could not find #" + ACTIONS_CHANNEL_NAME + " in " + guild.name);
+      return;
+    }
+
+    const join = await detectJoinMethod(guild);
+
+    let inviter = "Unknown";
+    let inviteCode = "Unknown";
+    let inviteChannel = "Unknown";
+    let details = join.reason || "Unknown";
+
+    if (join.method === "Discord invite" && join.invite) {
+      inviter = join.invite.inviterId ? "<@" + join.invite.inviterId + ">" : "Unknown";
+      inviteCode = join.code;
+      inviteChannel = join.invite.channelId ? "<#" + join.invite.channelId + ">" : "Unknown";
+      details =
+        "Uses after join: " + (join.invite.uses ?? "Unknown") +
+        "\\nInvite created: " + (join.invite.createdAt || "Unknown") +
+        "\\nMax uses: " + (join.invite.maxUses ?? "Unlimited") +
+        "\\nMax age: " + (join.invite.maxAge ?? 0) + "s" +
+        "\\nTemporary: " + (join.invite.temporary ? "Yes" : "No");
+    } else if (join.method === "Server vanity invite") {
+      inviter = "No individual inviter is provided";
+      inviteCode = "Vanity URL";
+      details = "Vanity invite uses increased by +" + join.vanityDelta;
+    } else if (join.method === "Invite - could not determine exactly") {
+      inviter = "Multiple possible inviters";
+      inviteCode = join.candidates.map(item => item.code).join(", ");
+      details = join.candidates.map(item =>
+        item.invite.inviterId
+          ? item.code + " -> <@" + item.invite.inviterId + ">"
+          : item.code + " -> Unknown"
+      ).join("\\n");
+    }
+
+    const roles = member.roles.cache
+      .filter(role => role.id !== guild.id)
+      .map(role => role.toString())
+      .join(", ") || "None";
+
+    const embed = new EmbedBuilder()
+      .setTitle("📥 Member Joined")
+      .setDescription(member.user.toString() + " joined " + guild.name + ".")
+      .setThumbnail(member.user.displayAvatarURL({ extension: "png", size: 256 }))
+      .addFields(
+        { name: "Member", value: member.user.toString(), inline: true },
+        { name: "Username", value: member.user.username, inline: true },
+        { name: "User ID", value: member.id, inline: true },
+        { name: "Bot", value: member.user.bot ? "Yes" : "No", inline: true },
+        { name: "Account created", value: formatAccountCreated(member.user), inline: false },
+        { name: "Joined server", value: member.joinedAt ? member.joinedAt.toISOString() : "Unknown", inline: false },
+        { name: "Nickname", value: member.nickname || "None", inline: true },
+        { name: "Pending verification", value: member.pending ? "Yes" : "No", inline: true },
+        { name: "Roles on join", value: roles.length > 1024 ? roles.slice(0, 1020) + "..." : roles, inline: false },
+        { name: "How they joined", value: join.method, inline: true },
+        { name: "Invited by", value: inviter, inline: true },
+        { name: "Invite", value: inviteCode, inline: true },
+        { name: "Invite channel", value: inviteChannel, inline: true },
+        { name: "Join details", value: details.length > 1024 ? details.slice(0, 1020) + "..." : details, inline: false }
+      )
+      .setColor("#000000")
+      .setFooter({ text: "ModBot join tracking" })
+      .setTimestamp();
+
+    await actions.send({
+      embeds: [embed],
+      allowedMentions: {
+        users:
+          join.method === "Discord invite" && join.invite && join.invite.inviterId
+            ? [join.invite.inviterId]
+            : []
+      }
+    });
+  } catch (error) {
+    console.error("Member join logging failed:", error);
+  }
+}
+
 async function deployCommands() {
   if (!DEPLOY_COMMANDS) {
     console.log("ℹ️ Automatic command deployment is disabled.");
