@@ -91,7 +91,7 @@ const commands = [
         .setRequired(false)
     ),
   new ContextMenuCommandBuilder()
-    .setName("showconfess")
+    .setName("warnconfessionsender")
     .setType(ApplicationCommandType.Message)
 ]
 
@@ -696,7 +696,7 @@ client.once(Events.ClientReady, async readyClient => {
 
 client.on(Events.InteractionCreate, async interaction => {
   try {
-    if (interaction.isMessageContextMenuCommand() && interaction.commandName === "showconfess") {
+    if (interaction.isMessageContextMenuCommand() && interaction.commandName === "warnconfessionsender") {
       return await run_show_confess(interaction);
     }
 
