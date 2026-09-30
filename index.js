@@ -22,6 +22,14 @@ const SOB_EMOJI = "😭";
 const SOB_TIME_ZONE = process.env.SOB_TIME_ZONE || "Europe/Stockholm";
 const ACTIONS_CHANNEL_NAME = "actions";
 const INVITE_CACHE_FILE = "./invite_cache.json";
+
+// Put channel names or channel IDs here.
+// Example: ["general", "123456789012345678"]
+// Only NEW messages in these channels are affected.
+const AUTO_DELETE_CHANNELS = [];
+
+// This user is allowed to send messages in the auto-delete channels.
+const AUTO_DELETE_ALLOWED_USER_ID = "926417866922811392";
 const DEPLOY_COMMANDS = (process.env.DEPLOY_COMMANDS || "true").toLowerCase() !== "false";
 if (!TOKEN) throw new Error("Missing DISCORD_TOKEN in .env");
 if (!CLIENT_ID) throw new Error("Missing DISCORD_CLIENT_ID in .env");
@@ -1020,6 +1028,37 @@ async function logMemberJoin(member) {
   }
 }
 
+
+function isAutoDeleteChannel(channel) {
+  if (!channel) return false;
+
+  return AUTO_DELETE_CHANNELS.some(value =>
+    String(value).trim() === channel.id ||
+    String(value).trim() === channel.name
+  );
+}
+
+async function handleAutoDeleteMessage(message) {
+  if (!message.guild) return false;
+
+  // Never let the bot delete its own messages.
+  if (client.user && message.author?.id === client.user.id) return false;
+
+  if (message.author?.id === AUTO_DELETE_ALLOWED_USER_ID) return false;
+  if (!isAutoDeleteChannel(message.channel)) return false;
+
+  try {
+    await message.delete();
+    return true;
+  } catch (error) {
+    console.error(
+      "❌ Could not auto-delete message " + message.id + ":",
+      error.message
+    );
+    return false;
+  }
+}
+
 async function deployCommands() {
   if (!DEPLOY_COMMANDS) {
     console.log("ℹ️ Automatic command deployment is disabled.");
@@ -1140,6 +1179,9 @@ client.on(Events.MessageCreate, async message => {
   if (!message.guild) return;
 
   try {
+    const wasDeleted = await handleAutoDeleteMessage(message);
+    if (wasDeleted) return;
+
     const sobChannels = await loadSobChannels();
     const state = sobChannels[message.guild.id];
 
@@ -1157,7 +1199,7 @@ client.on(Events.MessageCreate, async message => {
 
     await addSobReaction(message);
   } catch (error) {
-    console.error("❌ Sob message handler error:", error);
+    console.error("❌ Message handler error:", error);
   }
 });
 
