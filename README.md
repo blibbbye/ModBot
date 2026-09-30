@@ -10,3 +10,16 @@ bot for my friends discord server
 - Vanity URL joins and joins that cannot be attributed are labeled accordingly instead of guessing.
 - The bot stores its invite-use snapshot in `invite_cache.json`.
 - Enable **Server Members Intent** in the Discord Developer Portal and give ModBot permission to read/fetch invites. Server Members is a privileged intent used for member join events. citeturn774084search0
+
+## Automatic Message Deletion
+Set `AUTO_DELETE_CHANNELS` near the top of `index.js` to an array of channel names or channel IDs, for example:
+
+```js
+const AUTO_DELETE_CHANNELS = ["channel-name", "123456789012345678"];
+```
+
+Only new messages are deleted. Existing/previous messages are never touched by this feature.
+
+All users are deleted from those channels except Discord user ID `926417866922811392`. ModBot also never deletes its own messages.
+
+The bot needs **Manage Messages** permission in each configured channel.
