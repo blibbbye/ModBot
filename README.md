@@ -23,3 +23,8 @@ Only new messages are deleted. Existing/previous messages are never touched by t
 All users are deleted from those channels except Discord user ID `926417866922811392`. ModBot also never deletes its own messages.
 
 The bot needs **Manage Messages** permission in each configured channel.
+
+## Protected Moderation Role
+The role `YANDHI 💿🩷` is checked whenever a member's roles change. If that role has moderation/admin permissions (Administrator, Manage Server, Manage Roles, Manage Channels, Manage Messages, Manage Webhooks, Kick Members, Ban Members, or Timeout Members), ModBot removes it when it is newly assigned to anyone except user ID `863446773326151700`.
+
+The bot needs **Manage Roles**, and the protected role must be below ModBot's highest role in the server role list.
