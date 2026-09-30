@@ -26,7 +26,7 @@ const INVITE_CACHE_FILE = "./invite_cache.json";
 // Put channel names or channel IDs here.
 // Example: ["general", "123456789012345678"]
 // Only NEW messages in these channels are affected.
-const AUTO_DELETE_CHANNELS = [];
+const AUTO_DELETE_CHANNELS = ["1546238721194590420"];
 
 // This user is allowed to send messages in the auto-delete channels.
 const AUTO_DELETE_ALLOWED_USER_ID = "926417866922811392";
