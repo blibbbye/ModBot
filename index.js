@@ -1,7 +1,7 @@
 import "dotenv/config";
 import {
   Client, Events, GatewayIntentBits, REST, Routes, SlashCommandBuilder,
-  MessageFlags, EmbedBuilder, ChannelType,
+  PermissionFlagsBits, MessageFlags, EmbedBuilder, ChannelType,
   ContextMenuCommandBuilder, ApplicationCommandType,
   ActionRowBuilder, ButtonBuilder, ButtonStyle,
   ModalBuilder, TextInputBuilder, TextInputStyle
@@ -30,6 +30,12 @@ const AUTO_DELETE_CHANNELS = ["1546238721194590420"];
 
 // This user is allowed to send messages in the auto-delete channels.
 const AUTO_DELETE_ALLOWED_USER_ID = "926417866922811392";
+
+// Role that is not allowed to be given to normal members when it has moderation perks.
+const PROTECTED_MOD_ROLE_NAME = "YANDHI 💿🩷";
+
+// This user is allowed to keep the protected role even if it has moderation perks.
+const PROTECTED_MOD_ROLE_OWNER_ID = "863446773326151700";
 const DEPLOY_COMMANDS = (process.env.DEPLOY_COMMANDS || "true").toLowerCase() !== "false";
 if (!TOKEN) throw new Error("Missing DISCORD_TOKEN in .env");
 if (!CLIENT_ID) throw new Error("Missing DISCORD_CLIENT_ID in .env");
@@ -1059,6 +1065,63 @@ async function handleAutoDeleteMessage(message) {
   }
 }
 
+
+function hasModerationPerks(role) {
+  if (!role?.permissions) return false;
+
+  return role.permissions.has(PermissionFlagsBits.Administrator) ||
+    role.permissions.has(PermissionFlagsBits.ManageGuild) ||
+    role.permissions.has(PermissionFlagsBits.ManageRoles) ||
+    role.permissions.has(PermissionFlagsBits.ManageChannels) ||
+    role.permissions.has(PermissionFlagsBits.ManageMessages) ||
+    role.permissions.has(PermissionFlagsBits.ManageWebhooks) ||
+    role.permissions.has(PermissionFlagsBits.KickMembers) ||
+    role.permissions.has(PermissionFlagsBits.BanMembers) ||
+    role.permissions.has(PermissionFlagsBits.ModerateMembers);
+}
+
+async function enforceProtectedModRole(newMember, oldMember) {
+  if (!newMember?.guild) return;
+  if (newMember.user?.id === PROTECTED_MOD_ROLE_OWNER_ID) return;
+
+  const protectedRole = newMember.guild.roles.cache.find(
+    role => role.name === PROTECTED_MOD_ROLE_NAME
+  );
+
+  if (!protectedRole || !hasModerationPerks(protectedRole)) return;
+
+  const hadRole = oldMember?.roles?.cache?.has(protectedRole.id) ?? false;
+  const hasRoleNow = newMember.roles.cache.has(protectedRole.id);
+
+  // Only act when the role was newly added. Existing assignments are left alone.
+  if (hadRole || !hasRoleNow) return;
+
+  if (!protectedRole.editable) {
+    console.error(
+      "❌ ModBot cannot remove " + PROTECTED_MOD_ROLE_NAME +
+      " because that role is above the bot's highest role."
+    );
+    return;
+  }
+
+  try {
+    await newMember.roles.remove(
+      protectedRole.id,
+      "Protected moderation role cannot be assigned to this member"
+    );
+    console.log(
+      "🛡️ Removed " + PROTECTED_MOD_ROLE_NAME +
+      " from " + newMember.user.tag + "."
+    );
+  } catch (error) {
+    console.error(
+      "❌ Could not remove " + PROTECTED_MOD_ROLE_NAME +
+      " from " + newMember.user.tag + ":",
+      error.message
+    );
+  }
+}
+
 async function deployCommands() {
   if (!DEPLOY_COMMANDS) {
     console.log("ℹ️ Automatic command deployment is disabled.");
@@ -1173,6 +1236,10 @@ client.on(Events.InviteDelete, async invite => {
 
 client.on(Events.GuildMemberAdd, async member => {
   await logMemberJoin(member);
+});
+
+client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
+  await enforceProtectedModRole(newMember, oldMember);
 });
 
 client.on(Events.MessageCreate, async message => {
