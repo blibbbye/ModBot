@@ -22,6 +22,8 @@ const SOB_EMOJI = "😭";
 const SOB_TIME_ZONE = process.env.SOB_TIME_ZONE || "Europe/Stockholm";
 const ACTIONS_CHANNEL_NAME = "actions";
 const INVITE_CACHE_FILE = "./invite_cache.json";
+const DIH_SETTINGS_FILE = "./dih_settings.json";
+const DIH_CONTROL_USER_ID = "863446773326151700";
 
 // Put channel names or channel IDs here.
 // Example: ["general", "123456789012345678"]
@@ -177,13 +179,52 @@ async function run_help(ctx) {
   );
 }
 
+async function loadDihSettings() {
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const settings = JSON.parse(await readFile(DIH_SETTINGS_FILE, "utf8"));
+    return { enabled: settings?.enabled !== false };
+  } catch {
+    return { enabled: true };
+  }
+}
+
+async function saveDihSettings(settings) {
+  const { writeFile } = await import("node:fs/promises");
+  await writeFile(DIH_SETTINGS_FILE, JSON.stringify(settings, null, 2), "utf8");
+}
+
 async function handleDihMessage(message) {
   if (message.author?.bot) return;
-  if (message.content.trim().toLowerCase() !== "!dih") return;
+
+  const content = message.content.trim().toLowerCase();
+
+  // Only the configured controller can switch this feature on or off.
+  if (message.author.id === DIH_CONTROL_USER_ID && (content === "disable!dih" || content === "enable!dih")) {
+    const enabled = content === "enable!dih";
+    await saveDihSettings({
+      enabled,
+      updatedBy: message.author.id,
+      updatedAt: new Date().toISOString()
+    });
+
+    await message.reply({
+      content: enabled
+        ? "🟣 The !dih command is enabled again."
+        : "🔒 The !dih command has been disabled.",
+      allowedMentions: { repliedUser: false }
+    });
+    return;
+  }
+
+  if (content !== "!dih") return;
+
+  const settings = await loadDihSettings();
+  if (!settings.enabled) return;
 
   let inches;
-  if (message.author.id === "863446773326151700") {
-    // Blib gets the legendary owner-only range.
+  if (message.author.id === DIH_CONTROL_USER_ID) {
+    // The controller gets the special owner-only range.
     inches = Math.floor(Math.random() * 51) + 50; // 50–100
   } else if (Math.random() < 0.25) {
     inches = Math.floor(Math.random() * 11) + 10; // 10–20, 25% chance
@@ -198,13 +239,10 @@ async function handleDihMessage(message) {
   const ruler = "8" + "=".repeat(inches) + "D";
 
   const embed = new EmbedBuilder()
-    .setColor("#ff69b4")
-    .setTitle("📏 Extremely Scientific DIH Test")
-    .setAuthor({ name: displayName, iconURL: avatar })
+    .setColor("#7c3aed")
+    .setTitle(displayName + "'s dih size")
     .setThumbnail(avatar)
-    .setDescription("**Result: " + inches + " inches**\n\n`" + ruler + "`")
-    .setFooter({ text: "Peer-reviewed by absolutely nobody." })
-    .setTimestamp();
+    .setDescription("**" + inches + " inches**\\n" + ruler);
 
   await message.reply({
     embeds: [embed],
