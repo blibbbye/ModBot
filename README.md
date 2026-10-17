@@ -35,3 +35,5 @@ The bot needs **Manage Roles**, and the protected role must be below ModBot's hi
 - Most users get 1–10 inches; there is a 25% chance of rolling 10–20 instead.
 - User ID `863446773326151700` gets the special 50–100 range.
 - The embed shows the sender's profile picture and an `8===D` bar whose number of equals signs matches the roll.
+
+- To use the `!dih` text command, enable **Message Content Intent** under Discord Developer Portal → your app → **Bot** → **Privileged Gateway Intents**. The code also requests `GatewayIntentBits.MessageContent`.
