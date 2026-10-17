@@ -201,7 +201,7 @@ async function handleDihMessage(message) {
     .setTitle("📏 Extremely Scientific DIH Test")
     .setAuthor({ name: displayName, iconURL: avatar })
     .setThumbnail(avatar)
-    .setDescription("**Result: " + inches + " inches**\\n\\n\`" + ruler + "\`")
+    .setDescription("**Result: " + inches + " inches**\n\n`" + ruler + "`")
     .setFooter({ text: "Peer-reviewed by absolutely nobody." })
     .setTimestamp();
 
