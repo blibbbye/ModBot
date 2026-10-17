@@ -242,7 +242,7 @@ async function handleDihMessage(message) {
     .setColor("#7c3aed")
     .setTitle(displayName + "'s dih size")
     .setThumbnail(avatar)
-    .setDescription("**" + inches + " inches**\\n" + ruler);
+    .setDescription("**" + inches + " inches**" + String.fromCharCode(10) + ruler);
 
   await message.reply({
     embeds: [embed],
