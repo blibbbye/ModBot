@@ -35,6 +35,7 @@ The bot needs **Manage Roles**, and the protected role must be below ModBot's hi
 - It shows the random inch rating in bold, an `8===D` line with one equals sign per inch, and the sender's profile picture on the right.
 - Most users get 1–10 inches; there is a 25% chance of rolling 10–20 instead.
 - User ID `863446773326151700` gets the special 50–100 range and is the only person allowed to toggle the command.
+- User ID `926417866922811392` gets a random 1–10 millimeter result instead of inches.
 - That user can type `disable!dih` to turn it off for everyone and `enable!dih` to turn it back on. Its enabled state is saved in `dih_settings.json`.
 
 - To use the `!dih` text command, enable **Message Content Intent** under Discord Developer Portal → your app → **Bot** → **Privileged Gateway Intents**. The code also requests `GatewayIntentBits.MessageContent`.
