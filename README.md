@@ -28,3 +28,10 @@ The bot needs **Manage Messages** permission in each configured channel.
 The role `YANDHI 💿🩷` is checked whenever a member's roles change. If that role has moderation/admin permissions (Administrator, Manage Server, Manage Roles, Manage Channels, Manage Messages, Manage Webhooks, Kick Members, Ban Members, or Timeout Members), ModBot removes it when it is newly assigned to anyone except user ID `863446773326151700`.
 
 The bot needs **Manage Roles**, and the protected role must be below ModBot's highest role in the server role list.
+
+
+## Funny `!dih` Command
+- Sending `!dih` produces a random, obviously fake inch rating in an embed.
+- Most users get 1–10 inches; there is a 25% chance of rolling 10–20 instead.
+- User ID `863446773326151700` gets the special 50–100 range.
+- The embed shows the sender's profile picture and an `8===D` bar whose number of equals signs matches the roll.
