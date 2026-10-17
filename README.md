@@ -31,9 +31,10 @@ The bot needs **Manage Roles**, and the protected role must be below ModBot's hi
 
 
 ## Funny `!dih` Command
-- Sending `!dih` produces a random, obviously fake inch rating in an embed.
+- Sending `!dih` produces a screenshot-style purple embed titled with the sender's name and “dih size”.
+- It shows the random inch rating in bold, an `8===D` line with one equals sign per inch, and the sender's profile picture on the right.
 - Most users get 1–10 inches; there is a 25% chance of rolling 10–20 instead.
-- User ID `863446773326151700` gets the special 50–100 range.
-- The embed shows the sender's profile picture and an `8===D` bar whose number of equals signs matches the roll.
+- User ID `863446773326151700` gets the special 50–100 range and is the only person allowed to toggle the command.
+- That user can type `disable!dih` to turn it off for everyone and `enable!dih` to turn it back on. Its enabled state is saved in `dih_settings.json`.
 
 - To use the `!dih` text command, enable **Message Content Intent** under Discord Developer Portal → your app → **Bot** → **Privileged Gateway Intents**. The code also requests `GatewayIntentBits.MessageContent`.
