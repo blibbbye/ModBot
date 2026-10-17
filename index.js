@@ -222,27 +222,33 @@ async function handleDihMessage(message) {
   const settings = await loadDihSettings();
   if (!settings.enabled) return;
 
-  let inches;
+  let size;
+  let unit = "inches";
+
   if (message.author.id === DIH_CONTROL_USER_ID) {
     // The controller gets the special owner-only range.
-    inches = Math.floor(Math.random() * 51) + 50; // 50–100
+    size = Math.floor(Math.random() * 51) + 50; // 50–100 inches
+  } else if (message.author.id === "926417866922811392") {
+    // Special tiny rating for this user.
+    size = Math.floor(Math.random() * 10) + 1; // 1–10 millimeters
+    unit = "millimeters";
   } else if (Math.random() < 0.25) {
-    inches = Math.floor(Math.random() * 11) + 10; // 10–20, 25% chance
+    size = Math.floor(Math.random() * 11) + 10; // 10–20 inches, 25% chance
   } else {
-    inches = Math.floor(Math.random() * 10) + 1; // 1–10, 75% chance
+    size = Math.floor(Math.random() * 10) + 1; // 1–10 inches, 75% chance
   }
 
   const avatar = message.author.displayAvatarURL({ extension: "png", size: 512 });
   const displayName = message.member?.displayName ||
     message.author.globalName ||
     message.author.username;
-  const ruler = "8" + "=".repeat(inches) + "D";
+  const ruler = "8" + "=".repeat(size) + "D";
 
   const embed = new EmbedBuilder()
     .setColor("#7c3aed")
     .setTitle(displayName + "'s dih size")
     .setThumbnail(avatar)
-    .setDescription("**" + inches + " inches**" + String.fromCharCode(10) + ruler);
+    .setDescription("**" + size + " " + unit + "**" + String.fromCharCode(10) + ruler);
 
   await message.reply({
     embeds: [embed],
