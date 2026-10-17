@@ -171,7 +171,7 @@ async function run_help(ctx) {
     "/facts \"Sends a random fact about ModMod\"\n" +
     "/confess \"Submit an anonymous confession\"\n" +
     "!dih \"Gets a completely scientific random rating\"\n" +
-    "/help \"this\"\n\n"
+    "/help \"this\"\n\n" +
     "\"If u needed other help then ask me! @blib\"",
     true
   );
