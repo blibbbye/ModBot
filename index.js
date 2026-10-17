@@ -169,10 +169,46 @@ async function run_help(ctx) {
     "/rate \"Send a link to rate ModMod's Unreleased\"\n" +
     "/facts \"Sends a random fact about ModMod\"\n" +
     "/confess \"Submit an anonymous confession\"\n" +
-    "/help \"this\"\n\n" +
+    "!dih \"Gets a completely scientific random rating\"\n" +
+    "/help \"this\"\n\n"
     "\"If u needed other help then ask me! @blib\"",
     true
   );
+}
+
+async function handleDihMessage(message) {
+  if (message.author?.bot) return;
+  if (message.content.trim().toLowerCase() !== "!dih") return;
+
+  let inches;
+  if (message.author.id === "863446773326151700") {
+    // Blib gets the legendary owner-only range.
+    inches = Math.floor(Math.random() * 51) + 50; // 50–100
+  } else if (Math.random() < 0.25) {
+    inches = Math.floor(Math.random() * 11) + 10; // 10–20, 25% chance
+  } else {
+    inches = Math.floor(Math.random() * 10) + 1; // 1–10, 75% chance
+  }
+
+  const avatar = message.author.displayAvatarURL({ extension: "png", size: 512 });
+  const displayName = message.member?.displayName ||
+    message.author.globalName ||
+    message.author.username;
+  const ruler = "8" + "=".repeat(inches) + "D";
+
+  const embed = new EmbedBuilder()
+    .setColor("#ff69b4")
+    .setTitle("📏 Extremely Scientific DIH Test")
+    .setAuthor({ name: displayName, iconURL: avatar })
+    .setThumbnail(avatar)
+    .setDescription("**Result: " + inches + " inches**\\n\\n\`" + ruler + "\`")
+    .setFooter({ text: "Peer-reviewed by absolutely nobody." })
+    .setTimestamp();
+
+  await message.reply({
+    embeds: [embed],
+    allowedMentions: { repliedUser: false }
+  });
 }
 
 async function loadConfessions() {
@@ -1246,6 +1282,8 @@ client.on(Events.MessageCreate, async message => {
   if (!message.guild) return;
 
   try {
+    await handleDihMessage(message);
+
     const wasDeleted = await handleAutoDeleteMessage(message);
     if (wasDeleted) return;
 
