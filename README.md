@@ -39,3 +39,21 @@ The bot needs **Manage Roles**, and the protected role must be below ModBot's hi
 - That user can type `disable!dih` to turn it off for everyone and `enable!dih` to turn it back on. Its enabled state is saved in `dih_settings.json`.
 
 - To use the `!dih` text command, enable **Message Content Intent** under Discord Developer Portal → your app → **Bot** → **Privileged Gateway Intents**. The code also requests `GatewayIntentBits.MessageContent`.
+
+
+## Prefix commands
+- `!sob`: turn on sob mode in the current channel for messages from today.
+- `!stopsob`: stop future sob reactions in the current channel, leaving existing reactions.
+- `!unsob`: stop sob mode and remove ModBot's 😭 reactions from the current channel.
+- The sob controls only work for Discord user ID `863446773326151700`. User ID `926417866922811392` receives the existing joke denial.
+
+## Owner-only `!say`
+Only Discord user ID `863446773326151700` can use this.
+- Send `!say "your message"` and ModBot posts the text as itself.
+- Attach one or more files to the same Discord message as `!say`; ModBot will send the text and files as its own message.
+- To send file(s) without text, send `!say` and attach the files to that same message.
+- ModBot deletes the original `!say` command message after posting, so it does not remain visible with your name. For this to work, give ModBot **Manage Messages** in the channel, plus **Send Messages** and **Attach Files**.
+- Mentions in `!say` output are not pinged.
+
+## Confessions
+The `/confess` slash command and confession-submit button/modal are disabled. The existing secret-reply and authorized sender-lookup tools remain available on older confession posts.
