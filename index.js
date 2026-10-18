@@ -105,29 +105,6 @@ const commands = [
   new SlashCommandBuilder().setName("rate").setDescription("Sends a link to rate ModMod's unreleased!"),
   new SlashCommandBuilder().setName("facts").setDescription("Sends a random ModMod chance"),
   new SlashCommandBuilder().setName("help").setDescription("Shows bot commands"),
-  new SlashCommandBuilder()
-    .setName("confess")
-    .setDescription("Submit an anonymous confession")
-    .addStringOption(option =>
-      option.setName("message")
-        .setDescription("Optional confession text; leave empty for the form")
-        .setRequired(false)
-        .setMaxLength(2000)
-    )
-    .addAttachmentOption(option =>
-      option.setName("file")
-        .setDescription("Optional image or file to attach to the confession")
-        .setRequired(false)
-    ),
-  new SlashCommandBuilder()
-    .setName("sob")
-    .setDescription("React 😭 to every message sent today in this channel"),
-  new SlashCommandBuilder()
-    .setName("stopsob")
-    .setDescription("Stop future 😭 reactions in this channel"),
-  new SlashCommandBuilder()
-    .setName("unsob")
-    .setDescription("Stop sob mode and remove ModBot's 😭 reactions in this channel"),
   new ContextMenuCommandBuilder()
     .setName("warnconfessionsender")
     .setType(ApplicationCommandType.Message)
@@ -171,8 +148,11 @@ async function run_help(ctx) {
     "/socials \"Sends links of ModMod's Socials\"\n" +
     "/rate \"Send a link to rate ModMod's Unreleased\"\n" +
     "/facts \"Sends a random fact about ModMod\"\n" +
-    "/confess \"Submit an anonymous confession\"\n" +
     "!dih \"Gets a completely scientific random rating\"\n" +
+    "!sob \"React 😭 to today’s messages in this channel\"\n" +
+    "!stopsob \"Stop future 😭 reactions in this channel\"\n" +
+    "!unsob \"Stop sob mode and remove ModBot’s 😭 reactions here\"\n" +
+    "!say \"Owner-only: make ModBot post text or attached files\"\n" +
     "/help \"this\"\n\n" +
     "\"If u needed other help then ask me! @blib\"",
     true
@@ -254,6 +234,66 @@ async function handleDihMessage(message) {
     embeds: [embed],
     allowedMentions: { repliedUser: false }
   });
+}
+
+async function handleSayMessage(message) {
+  if (!message.guild || message.author?.bot) return false;
+
+  const match = message.content.match(/^!say(?:\\s+([\\s\\S]*))?$/i);
+  if (!match) return false;
+
+  // Ignore other users' !say attempts; this feature belongs only to Blib.
+  if (message.author.id !== "863446773326151700") return false;
+
+  let sayText = (match[1] || "").trim();
+  if (sayText.length >= 2 && sayText.startsWith('"') && sayText.endsWith('"')) {
+    sayText = sayText.slice(1, -1);
+  }
+
+  const files = [...message.attachments.values()].map(attachment => ({
+    attachment: attachment.url,
+    name: attachment.name || "upload"
+  }));
+
+  if (!sayText && files.length === 0) {
+    await message.reply('Usage: `!say "message"` — you can also attach one or more files to the same message.')
+      .catch(() => null);
+    return true;
+  }
+
+  const botMember = message.guild.members.me ||
+    await message.guild.members.fetchMe().catch(() => null);
+
+  if (!botMember?.permissionsIn(message.channel).has(PermissionFlagsBits.ManageMessages)) {
+    await message.reply("For anonymous !say posts, give ModBot **Manage Messages** in this channel so it can remove the command message.")
+      .catch(() => null);
+    return true;
+  }
+
+  try {
+    const payload = {
+      allowedMentions: { parse: [] }
+    };
+    if (sayText) payload.content = sayText;
+    if (files.length) payload.files = files;
+
+    const sent = await message.channel.send(payload);
+
+    try {
+      await message.delete();
+    } catch (deleteError) {
+      // Avoid leaving a bot post that appears anonymous if the source command could not be removed.
+      await sent.delete().catch(() => null);
+      console.error("!say sent message was rolled back because its source message could not be deleted:", deleteError.message);
+      await message.author.send("I couldn't complete that !say post because ModBot couldn't delete your command message. Make sure it has Manage Messages in that channel.").catch(() => null);
+    }
+  } catch (error) {
+    console.error("!say failed:", error);
+    await message.reply("I couldn't send that !say message or its attachments. Check the bot's channel permissions and the file size.")
+      .catch(() => null);
+  }
+
+  return true;
 }
 
 async function loadConfessions() {
@@ -736,15 +776,36 @@ function getSobDayKey(date = new Date()) {
   }).format(date);
 }
 
-function isMainCoOwner(interaction) {
-  return interaction.user?.id === "863446773326151700";
+function isMainCoOwner(subject) {
+  const userId = subject?.user?.id || subject?.interaction?.user?.id;
+  return userId === "863446773326151700";
 }
 
 async function rejectSecondCoOwnerSobCommand(ctx) {
-  if (ctx.interaction?.user?.id === "926417866922811392") {
+  const userId = ctx.user?.id || ctx.interaction?.user?.id;
+  if (userId === "926417866922811392") {
     return await ctx.reply("Hahaha you thought Moo Moo lil bro :sob:", true);
   }
   return false;
+}
+
+async function handleSobPrefixCommand(message) {
+  if (!message.guild || message.author?.bot) return false;
+  const command = message.content.trim().toLowerCase();
+  if (!["!sob", "!stopsob", "!unsob"].includes(command)) return false;
+
+  // Preserve the second co-owner's special denial; only the main co-owner can activate these.
+  if (message.author.id === "926417866922811392") {
+    await message.reply("Hahaha you thought Moo Moo lil bro :sob:").catch(() => null);
+    return true;
+  }
+  if (message.author.id !== "863446773326151700") return false;
+
+  const ctx = createMessageContext(message);
+  if (command === "!sob") await run_sob(ctx);
+  else if (command === "!stopsob") await run_stopsob(ctx);
+  else if (command === "!unsob") await run_unsob(ctx);
+  return true;
 }
 
 async function addSobReaction(message) {
@@ -799,12 +860,12 @@ async function reactToTodaysMessages(channel) {
 
 async function run_sob(ctx) {
   if (await rejectSecondCoOwnerSobCommand(ctx)) return;
-  if (!isMainCoOwner(ctx.interaction)) {
+  if (!isMainCoOwner(ctx)) {
     return await ctx.reply("You don't have permission to use this.", true);
   }
 
   if (!ctx.guild || !ctx.channel?.isTextBased?.()) {
-    return await ctx.reply("Use /sob inside a server text channel.", true);
+    return await ctx.reply("Use !sob inside a server text channel.", true);
   }
 
   const today = getSobDayKey();
@@ -830,12 +891,12 @@ async function run_sob(ctx) {
 
 async function run_stopsob(ctx) {
   if (await rejectSecondCoOwnerSobCommand(ctx)) return;
-  if (!isMainCoOwner(ctx.interaction)) {
+  if (!isMainCoOwner(ctx)) {
     return await ctx.reply("You don't have permission to use this.", true);
   }
 
   if (!ctx.guild || !ctx.channel?.isTextBased?.()) {
-    return await ctx.reply("Use /stopsob inside a server text channel.", true);
+    return await ctx.reply("Use !stopsob inside a server text channel.", true);
   }
 
   const sobChannels = await loadSobChannels();
@@ -856,12 +917,12 @@ async function run_stopsob(ctx) {
 
 async function run_unsob(ctx) {
   if (await rejectSecondCoOwnerSobCommand(ctx)) return;
-  if (!isMainCoOwner(ctx.interaction)) {
+  if (!isMainCoOwner(ctx)) {
     return await ctx.reply("You don't have permission to use this.", true);
   }
 
   if (!ctx.guild || !ctx.channel?.isTextBased?.()) {
-    return await ctx.reply("Use /unsob inside a server text channel.", true);
+    return await ctx.reply("Use !unsob inside a server text channel.", true);
   }
 
   const sobChannels = await loadSobChannels();
@@ -1329,6 +1390,12 @@ client.on(Events.MessageCreate, async message => {
   try {
     await handleDihMessage(message);
 
+    const handledSay = await handleSayMessage(message);
+    if (handledSay) return;
+
+    const handledSobCommand = await handleSobPrefixCommand(message);
+    if (handledSobCommand) return;
+
     const wasDeleted = await handleAutoDeleteMessage(message);
     if (wasDeleted) return;
 
@@ -1360,7 +1427,10 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 
     if (interaction.isButton() && interaction.customId.startsWith("submit_confession:")) {
-      return await showConfessionModal(interaction);
+      return await interaction.reply({
+        content: "Anonymous confession submissions are currently disabled.",
+        flags: MessageFlags.Ephemeral
+      });
     }
 
     if (interaction.isButton() && interaction.customId === "secret_reply") {
@@ -1368,7 +1438,10 @@ client.on(Events.InteractionCreate, async interaction => {
     }
 
     if (interaction.isModalSubmit() && interaction.customId === "confession_modal") {
-      return await handleConfessionModal(interaction);
+      return await interaction.reply({
+        content: "Anonymous confession submissions are currently disabled.",
+        flags: MessageFlags.Ephemeral
+      });
     }
 
     if (interaction.isModalSubmit() && interaction.customId.startsWith("secret_reply_modal:")) {
@@ -1384,10 +1457,6 @@ client.on(Events.InteractionCreate, async interaction => {
     if (interaction.commandName === "rate") return await run_rate(ctx);
     if (interaction.commandName === "facts") return await run_facts(ctx);
     if (interaction.commandName === "help") return await run_help(ctx);
-    if (interaction.commandName === "confess") return await run_confess(ctx);
-    if (interaction.commandName === "sob") return await run_sob(ctx);
-    if (interaction.commandName === "stopsob") return await run_stopsob(ctx);
-    if (interaction.commandName === "unsob") return await run_unsob(ctx);
   } catch (error) {
     console.error("Command error:", error);
     const payload={content:"Something went wrong while running that command.",flags:MessageFlags.Ephemeral};
