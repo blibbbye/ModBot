@@ -239,7 +239,7 @@ async function handleDihMessage(message) {
 async function handleSayMessage(message) {
   if (!message.guild || message.author?.bot) return false;
 
-  const match = message.content.match(/^!say(?:\\s+([\\s\\S]*))?$/i);
+  const match = message.content.match(/^!say(?:\s+([\s\S]*))?$/i);
   if (!match) return false;
 
   // Ignore other users' !say attempts; this feature belongs only to Blib.
