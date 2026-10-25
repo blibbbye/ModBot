@@ -1359,7 +1359,7 @@ async function lastFmCall(method, params = {}, signed = false) {
   const values = { method, api_key: LASTFM_API_KEY, ...params };
   if (signed) values.api_sig = lastFmSignature(values);
   values.format = "json";
-  const isWrite = signed;
+  const isWrite = signed && !["auth.getToken", "auth.getSession"].includes(method);
   const response = await fetch(LASTFM_API_URL + (isWrite ? "" : "?" + new URLSearchParams(values)), {
     method: isWrite ? "POST" : "GET",
     headers: { "user-agent": "ModBot Last.fm integration/1.0", ...(isWrite ? { "content-type": "application/x-www-form-urlencoded" } : {}) },
@@ -1498,8 +1498,11 @@ async function handleFmCommand(interaction) {
       return await interaction.editReply({ embeds: [embed] });
     }
 
-    let user = fmUserFrom(interaction);
-    user = await fmResolveUser(interaction, user, store);
+    let user = null;
+    if (sub !== "search") {
+      user = fmUserFrom(interaction);
+      user = await fmResolveUser(interaction, user, store);
+    }
     if (sub === "nowplaying") {
       const data = await lastFmCall("user.getRecentTracks", { user, limit: 1, extended: 1 });
       const track = fmList(data?.recenttracks?.track)[0];
