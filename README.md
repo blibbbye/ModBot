@@ -57,3 +57,34 @@ Only Discord user ID `863446773326151700` can use this.
 
 ## Confessions
 The `/confess` slash command and confession-submit button/modal are disabled. The existing secret-reply and authorized sender-lookup tools remain available on older confession posts.
+
+
+## Last.fm music commands
+
+ModBot now includes Last.fm account linking and listening commands.
+
+### Setup
+
+1. Create an API application at [Last.fm API accounts](https://www.last.fm/api/account) and copy its API key and shared secret.
+2. Add `LASTFM_API_KEY` and `LASTFM_API_SECRET` to the bot's private `.env` file. Do not put the shared secret in a website, publish it, or commit it to GitHub.
+3. Restart ModBot and run `/fm link`. Press **Authorize Last.fm**, approve the app, then return to Discord and press **I've authorized**. If needed, run `/fm finish`.
+4. Use `/fm status` to confirm the link. `/fm unlink` disconnects the account from ModBot; it does not delete listening history on Last.fm.
+
+### Commands added
+
+- `/fm link`, `/fm finish`, `/fm status`, `/fm unlink`, `/fm help`
+- `/nowplaying`, `/recent`
+- `/top tracks`, `/top albums`, `/top artists` with time periods
+- `/wk tracks`, `/wk albums`, `/wk artists`
+- `/chart artists`, `/chart albums`
+- `/recap`, `/overview`, `/profile`, `/friendsfm`, `/taste`, `/loved`, `/search`
+
+### Where listening data comes from
+
+These commands read the user's Last.fm profile. ModBot cannot silently detect every app by itself: Spotify must be connected in Last.fm's **Settings → Applications → Spotify Scrobbling**, and browser music sites need a compatible scrobbler such as [Web Scrobbler](https://webscrobbler.com/). See [Last.fm's Track My Music guide](https://www.last.fm/about/trackmymusic).
+
+**Localify note:** the existing Localify player does not automatically send scrobbles to Last.fm yet. Linking your Last.fm account to ModBot alone cannot capture Localify playback. That requires a separate, secure Localify-to-Last.fm scrobbling integration; the API shared secret must stay on a trusted server, not in the public GitHub Pages HTML.
+
+### Storage and safety
+
+Account links are stored in `lastfm_links.json` beside `index.js` on the machine running ModBot. It contains Last.fm session keys, so keep it private, back it up securely, and do not share or commit it. If your host has an ephemeral filesystem, links may need to be reconnected after a restart or redeploy.
