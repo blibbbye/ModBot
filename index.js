@@ -113,6 +113,14 @@ const commands = [
     .addSubcommand(s=>s.setName("status").setDescription("Check your Last.fm connection"))
     .addSubcommand(s=>s.setName("localify").setDescription("Generate a private connection key for the Localify player"))
     .addSubcommand(s=>s.setName("help").setDescription("Show Last.fm commands")),
+  new SlashCommandBuilder().setName("crowns").setDescription("See who on this server has played an artist the most")
+    .addStringOption(o=>o.setName("artist").setDescription("Artist name to check").setRequired(true).setMaxLength(100))
+    .addStringOption(o=>o.setName("period").setDescription("Chart period").setRequired(false).addChoices({name:"7 days",value:"7day"},{name:"1 month",value:"1month"},{name:"3 months",value:"3month"},{name:"6 months",value:"6month"},{name:"12 months",value:"12month"},{name:"All time",value:"overall"})),
+  new SlashCommandBuilder().setName("import").setDescription("Import Spotify or Apple Music listening history into Last.fm")
+    .addSubcommand(s=>s.setName("spotify").setDescription("Import a Spotify Extended Streaming History JSON file")
+      .addAttachmentOption(o=>o.setName("file").setDescription("One Spotify streaming history JSON file").setRequired(true)))
+    .addSubcommand(s=>s.setName("apple").setDescription("Import an Apple Music play history JSON file")
+      .addAttachmentOption(o=>o.setName("file").setDescription("One Apple Music play history JSON file").setRequired(true))),
   new SlashCommandBuilder().setName("nowplaying").setDescription("See what you or a Last.fm user is listening to")
     .addStringOption(o=>o.setName("user").setDescription("Last.fm username (defaults to your linked account)").setRequired(false)),
   new SlashCommandBuilder().setName("recent").setDescription("See recent Last.fm scrobbles")
@@ -1498,6 +1506,7 @@ async function handleFmCommand(interaction) {
         "/fm link — connect your account",
         "/fm finish — finish authorization if the button failed",
         "/fm status / /fm unlink — manage the connection",
+        "/fm localify — connect Localify playback to Last.fm",
         "/nowplaying — current track",
         "/recent — recent scrobbles",
         "/top tracks|albums|artists — charts by period",
@@ -1508,13 +1517,15 @@ async function handleFmCommand(interaction) {
         "/friendsfm — Last.fm friends",
         "/taste user:<name> — shared top artists",
         "/loved — loved tracks",
-        "/search — Last.fm artist/album/track search"
+        "/search — Last.fm artist/album/track search",
+        "/crowns — server artist play-count ranking",
+        "/import spotify|apple — import listening-history JSON"
       ].join("\n"));
       return await interaction.editReply({ embeds: [embed] });
     }
 
     let user = null;
-    if (sub !== "search") {
+    if (sub !== "search" && sub !== "crowns") {
       user = fmUserFrom(interaction);
       user = await fmResolveUser(interaction, user, store);
     }
@@ -1633,6 +1644,42 @@ async function handleFmCommand(interaction) {
       embed.setURL(fmProfileLink(user)); const img=fmImage(tracks[0]?.album); if(img) embed.setThumbnail(img);
       return await interaction.editReply({ embeds: [embed] });
     }
+    if (sub === "crowns") {
+      if (!interaction.guild) throw new Error("Use /crowns in a server so I can compare linked members.");
+      const artistQuery = interaction.options.getString("artist", true).trim().toLocaleLowerCase();
+      const period = interaction.options.getString("period") || "overall";
+      await interaction.guild.members.fetch().catch(()=>null);
+      const members = [...interaction.guild.members.cache.values()];
+      const connected = Object.entries(store.links).filter(([id, value]) =>
+        value?.username && members.some(member => member.id === id)
+      ).slice(0, 40);
+      if (!connected.length) throw new Error("No server members have linked Last.fm yet. Members can use /fm link.");
+      const winners = [];
+      for (let offset=0; offset<connected.length; offset+=3) {
+        const batch = connected.slice(offset, offset+3);
+        const results = await Promise.all(batch.map(async ([id, value]) => {
+          try {
+            const data = await lastFmCall("user.getTopArtists", { user:value.username, period, limit:100 });
+            const artists = fmList(data?.topartists?.artist);
+            const found = artists.find(item => fmText(item.name).toLocaleLowerCase() === artistQuery);
+            return found ? { id, username:value.username, count:Number(found.playcount||0) } : null;
+          } catch { return null; }
+        }));
+        winners.push(...results.filter(Boolean));
+        if(offset+3<connected.length) await sleep(180);
+      }
+      winners.sort((a,b)=>b.count-a.count);
+      const embed = fmMakeEmbed("👑 Artist crowns · " + interaction.guild.name, "**Artist:** " + interaction.options.getString("artist", true) + "\n**Period:** " + fmPeriodLabel(period));
+      embed.setDescription(winners.length
+        ? winners.slice(0,10).map((entry,i)=>(i===0?"👑 ":"")+(i+1)+". <@"+entry.id+"> — "+entry.count.toLocaleString()+" plays").join("\n")
+        : "No linked member had this artist in their top 100 for this period. Members may need to listen more or link Last.fm.");
+      embed.setFooter({ text:"Checked up to 40 connected server members. Results use each member's Last.fm top-artist chart." });
+      return await interaction.editReply({ embeds:[embed] });
+    }
+    if (sub === "import") {
+      const source = interaction.options.getSubcommand();
+      return await fmImportHistory(interaction, source, store);
+    }
     if (sub === "search") {
       const type = interaction.options.getString("type", true), query = interaction.options.getString("query", true).trim();
       const method = ({ artist:"artist.search", album:"album.search", track:"track.search" })[type];
@@ -1666,6 +1713,86 @@ function bridgeJson(res, status, data) {
   res.writeHead(status, { "content-type":"application/json; charset=utf-8", "cache-control":"no-store", "content-length":Buffer.byteLength(body) });
   res.end(body);
 }
+
+function fmHistoryArray(data) {
+  if (Array.isArray(data)) return data;
+  const keys = ["streamingHistory", "streaming_history", "playActivity", "plays", "items", "tracks", "history", "data"];
+  for (const key of keys) if (Array.isArray(data?.[key])) return data[key];
+  for (const value of Object.values(data || {})) {
+    if (Array.isArray(value) && value.some(item => item && typeof item === "object")) return value;
+    if (value && typeof value === "object") {
+      for (const nested of Object.values(value)) if (Array.isArray(nested) && nested.some(item => item && typeof item === "object")) return nested;
+    }
+  }
+  return [];
+}
+function fmTimestampSeconds(value) {
+  if (value == null || value === "") return 0;
+  if (typeof value === "number" || /^\d{9,13}$/.test(String(value))) {
+    const n = Number(value);
+    return Math.floor(n > 100000000000 ? n / 1000 : n);
+  }
+  const n = Date.parse(String(value));
+  return Number.isFinite(n) ? Math.floor(n / 1000) : 0;
+}
+function fmNormalizeImportedRecord(record, source) {
+  const track = String(record?.master_metadata_track_name || record?.trackName || record?.track_name || record?.track || record?.songTitle || record?.name || "").trim();
+  const artist = String(record?.master_metadata_album_artist_name || record?.artistName || record?.artist_name || record?.artist || record?.albumArtist || "").trim();
+  const album = String(record?.master_metadata_album_album_name || record?.albumName || record?.album_name || record?.album || "").trim();
+  const playedMs = Number(record?.ms_played ?? record?.msPlayed ?? record?.playDurationMillis ?? record?.play_duration_ms ?? record?.playedMs ?? record?.durationInMillis ?? 0);
+  const endValue = record?.ts ?? record?.endTime ?? record?.eventEndTimestamp ?? record?.playedAt ?? record?.playDate ?? record?.timestamp;
+  let timestamp = fmTimestampSeconds(endValue);
+  if (source === "spotify" || record?.ts || record?.endTime || record?.eventEndTimestamp) {
+    timestamp = Math.max(0, timestamp - Math.floor(Math.max(0, playedMs) / 1000));
+  }
+  return { track, artist, album, playedMs, timestamp };
+}
+async function fmImportHistory(interaction, source, store) {
+  const account = store.links[interaction.user.id];
+  if (!account?.sessionKey) throw new Error("Connect Last.fm first with /fm link.");
+  const file = interaction.options.getAttachment("file", true);
+  if (!file.name?.toLowerCase().endsWith(".json")) throw new Error("Please attach a JSON history export.");
+  if (Number(file.size || 0) > 20 * 1024 * 1024) throw new Error("This JSON file is over the 20 MB limit. Split your listening-history export into smaller files and import them separately.");
+  const response = await fetch(file.url, { headers: { "user-agent": "ModBot Last.fm integration/1.0" } });
+  if (!response.ok) throw new Error("I couldn't download that attachment from Discord.");
+  const raw = await response.text();
+  if (raw.length > 20 * 1024 * 1024) throw new Error("This JSON file is over the 20 MB processing limit.");
+  let json;
+  try { json = JSON.parse(raw); } catch { throw new Error("That file isn't valid JSON. Attach a Spotify Extended Streaming History or Apple Music JSON export."); }
+  const sourceRecords = fmHistoryArray(json);
+  if (!sourceRecords.length) throw new Error("I couldn't find a supported list of listening events in that file.");
+  const records = sourceRecords.map(item => fmNormalizeImportedRecord(item, source))
+    .filter(item => item.track && item.artist && item.playedMs >= 30000 && item.timestamp > 0)
+    .sort((a,b) => a.timestamp-b.timestamp);
+  if (!records.length) throw new Error("No eligible plays were found. The import expects track title, artist, play timestamp, and at least 30 seconds played.");
+  if (records.length > 1000) throw new Error("This file contains " + records.length.toLocaleString() + " eligible plays. The safe limit is 1,000 per import; use smaller export files so you can track progress and avoid duplicate imports.");
+  let accepted = 0, ignored = 0, batches = 0;
+  for (let offset = 0; offset < records.length; offset += 50) {
+    const batch = records.slice(offset, offset + 50), params = { sk: account.sessionKey };
+    batch.forEach((item, index) => {
+      params["artist[" + index + "]"] = item.artist;
+      params["track[" + index + "]"] = item.track;
+      params["timestamp[" + index + "]"] = item.timestamp;
+      params["duration[" + index + "]"] = Math.max(30, Math.floor(item.playedMs / 1000));
+      params["chosenByUser[" + index + "]"] = 1;
+      if (item.album) params["album[" + index + "]"] = item.album;
+    });
+    const result = await lastFmCall("track.scrobble", params, true);
+    accepted += Number(result?.scrobbles?.["@attr"]?.accepted || 0);
+    ignored += Number(result?.scrobbles?.["@attr"]?.ignored || 0);
+    batches++;
+    if (offset + 50 < records.length) await sleep(350);
+  }
+  const embed = fmMakeEmbed("Listening history imported", "Processed " + records.length.toLocaleString() + " eligible " + source + " plays in " + batches + " Last.fm batch(es).");
+  embed.addFields(
+    { name: "Accepted", value: accepted.toLocaleString(), inline: true },
+    { name: "Ignored by Last.fm", value: ignored.toLocaleString(), inline: true },
+    { name: "Account", value: account.username, inline: true }
+  );
+  embed.setFooter({ text: "Check your Last.fm profile before re-importing the same file; duplicate plays may be added." });
+  return interaction.editReply({ embeds: [embed] });
+}
+
 function startLastFmBridge() {
   if (!LASTFM_API_KEY || !LASTFM_API_SECRET) {
     console.log("ℹ️ Localify Last.fm bridge is off until LASTFM_API_KEY and LASTFM_API_SECRET are configured.");
@@ -1932,7 +2059,7 @@ client.on(Events.InteractionCreate, async interaction => {
 
     if (!interaction.isChatInputCommand()) return;
 
-    if (["fm","nowplaying","recent","top","wk","chart","recap","overview","profile","friendsfm","taste","loved","search"].includes(interaction.commandName)) {
+    if (["fm","nowplaying","recent","top","wk","chart","recap","overview","profile","friendsfm","taste","loved","search","crowns","import"].includes(interaction.commandName)) {
       return await handleFmCommand(interaction);
     }
 
