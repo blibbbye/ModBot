@@ -66,7 +66,7 @@ ModBot now includes Last.fm account linking and listening commands.
 ### Setup
 
 1. Create an API application at [Last.fm API accounts](https://www.last.fm/api/account) and copy its API key and shared secret.
-2. Add `LASTFM_API_KEY` and `LASTFM_API_SECRET` to the bot's private `.env` file. Do not put the shared secret in a website, publish it, or commit it to GitHub.
+2. Add `LASTFM_API_KEY` and `LASTFM_API_SECRET` to the bot's private `.env` file. Do not put the shared secret in a website, publish it, or commit it to GitHub. You can leave `LASTFM_BRIDGE_PORT=4220` as-is unless that port is already in use.
 3. Restart ModBot and run `/fm link`. Press **Authorize Last.fm**, approve the app, then return to Discord and press **I've authorized**. If needed, run `/fm finish`.
 4. Use `/fm status` to confirm the link. `/fm unlink` disconnects the account from ModBot; it does not delete listening history on Last.fm.
 
@@ -83,7 +83,9 @@ ModBot now includes Last.fm account linking and listening commands.
 
 These commands read the user's Last.fm profile. ModBot cannot silently detect every app by itself: Spotify must be connected in Last.fm's **Settings → Applications → Spotify Scrobbling**, and browser music sites need a compatible scrobbler such as [Web Scrobbler](https://webscrobbler.com/). See [Last.fm's Track My Music guide](https://www.last.fm/about/trackmymusic).
 
-**Localify note:** the existing Localify player does not automatically send scrobbles to Last.fm yet. Linking your Last.fm account to ModBot alone cannot capture Localify playback. That requires a separate, secure Localify-to-Last.fm scrobbling integration; the API shared secret must stay on a trusted server, not in the public GitHub Pages HTML.
+**Localify scrobbling:** after linking Last.fm, run `/fm localify` in Discord and copy the private key it gives you. Open Localify → Profile → Account settings → Last.fm scrobbling, paste the key, and select **Save & test connection**. The ModBot bridge listens only on `127.0.0.1:4220`; therefore ModBot must be running on the same computer as the browser running Localify. This sends Now Playing updates and scrobbles after Last.fm's minimum-listen threshold. The bridge keeps the API secret and Last.fm session key on the bot side; Localify only holds a revocable pairing key. Run `/fm localify` again to replace the pairing key, or `/fm unlink` to revoke the Last.fm connection.
+
+Spotify and other websites still need to scrobble to Last.fm independently. For Spotify, enable Spotify Scrobbling under Last.fm Settings → Applications. For browser players, use a compatible scrobbler such as [Web Scrobbler](https://webscrobbler.com/).
 
 ### Storage and safety
 
