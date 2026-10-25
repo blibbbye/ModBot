@@ -1,0 +1,6 @@
+.env
+lastfm_links.json
+sob_channels.json
+dih_settings.json
+node_modules/
+*.log
