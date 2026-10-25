@@ -104,7 +104,65 @@ const commands = [
   new SlashCommandBuilder().setName("socials").setDescription("Sends links of ModMod's Unreleased"),
   new SlashCommandBuilder().setName("rate").setDescription("Sends a link to rate ModMod's unreleased!"),
   new SlashCommandBuilder().setName("facts").setDescription("Sends a random ModMod chance"),
-  new SlashCommandBuilder().setName("help").setDescription("Shows bot commands"),
+    new SlashCommandBuilder().setName("help").setDescription("Shows bot commands"),
+  new SlashCommandBuilder().setName("fm").setDescription("Connect and manage your Last.fm account")
+    .addSubcommand(s=>s.setName("link").setDescription("Connect your Last.fm account"))
+    .addSubcommand(s=>s.setName("finish").setDescription("Finish Last.fm authorization after approving it"))
+    .addSubcommand(s=>s.setName("unlink").setDescription("Disconnect your Last.fm account"))
+    .addSubcommand(s=>s.setName("status").setDescription("Check your Last.fm connection"))
+    .addSubcommand(s=>s.setName("help").setDescription("Show Last.fm commands")),
+  new SlashCommandBuilder().setName("nowplaying").setDescription("See what you or a Last.fm user is listening to")
+    .addStringOption(o=>o.setName("user").setDescription("Last.fm username (defaults to your linked account)").setRequired(false)),
+  new SlashCommandBuilder().setName("recent").setDescription("See recent Last.fm scrobbles")
+    .addStringOption(o=>o.setName("user").setDescription("Last.fm username (defaults to your linked account)").setRequired(false))
+    .addIntegerOption(o=>o.setName("limit").setDescription("How many tracks to show (1–10)").setMinValue(1).setMaxValue(10).setRequired(false)),
+  new SlashCommandBuilder().setName("top").setDescription("Show top Last.fm tracks, albums, or artists")
+    .addSubcommand(s=>s.setName("tracks").setDescription("Top tracks")
+      .addStringOption(o=>o.setName("period").setDescription("Chart period").setRequired(false).addChoices({name:"7 days",value:"7day"},{name:"1 month",value:"1month"},{name:"3 months",value:"3month"},{name:"6 months",value:"6month"},{name:"12 months",value:"12month"},{name:"All time",value:"overall"}))
+      .addStringOption(o=>o.setName("user").setDescription("Last.fm username").setRequired(false))
+      .addIntegerOption(o=>o.setName("limit").setDescription("Number of results (1–10)").setMinValue(1).setMaxValue(10).setRequired(false)))
+    .addSubcommand(s=>s.setName("albums").setDescription("Top albums")
+      .addStringOption(o=>o.setName("period").setDescription("Chart period").setRequired(false).addChoices({name:"7 days",value:"7day"},{name:"1 month",value:"1month"},{name:"3 months",value:"3month"},{name:"6 months",value:"6month"},{name:"12 months",value:"12month"},{name:"All time",value:"overall"}))
+      .addStringOption(o=>o.setName("user").setDescription("Last.fm username").setRequired(false))
+      .addIntegerOption(o=>o.setName("limit").setDescription("Number of results (1–10)").setMinValue(1).setMaxValue(10).setRequired(false)))
+    .addSubcommand(s=>s.setName("artists").setDescription("Top artists")
+      .addStringOption(o=>o.setName("period").setDescription("Chart period").setRequired(false).addChoices({name:"7 days",value:"7day"},{name:"1 month",value:"1month"},{name:"3 months",value:"3month"},{name:"6 months",value:"6month"},{name:"12 months",value:"12month"},{name:"All time",value:"overall"}))
+      .addStringOption(o=>o.setName("user").setDescription("Last.fm username").setRequired(false))
+      .addIntegerOption(o=>o.setName("limit").setDescription("Number of results (1–10)").setMinValue(1).setMaxValue(10).setRequired(false))),
+  new SlashCommandBuilder().setName("wk").setDescription("Show your latest Last.fm weekly chart")
+    .addSubcommand(s=>s.setName("tracks").setDescription("Weekly tracks")
+      .addStringOption(o=>o.setName("user").setDescription("Last.fm username").setRequired(false))
+      .addIntegerOption(o=>o.setName("limit").setDescription("Number of results (1–10)").setMinValue(1).setMaxValue(10).setRequired(false)))
+    .addSubcommand(s=>s.setName("albums").setDescription("Weekly albums")
+      .addStringOption(o=>o.setName("user").setDescription("Last.fm username").setRequired(false))
+      .addIntegerOption(o=>o.setName("limit").setDescription("Number of results (1–10)").setMinValue(1).setMaxValue(10).setRequired(false)))
+    .addSubcommand(s=>s.setName("artists").setDescription("Weekly artists")
+      .addStringOption(o=>o.setName("user").setDescription("Last.fm username").setRequired(false))
+      .addIntegerOption(o=>o.setName("limit").setDescription("Number of results (1–10)").setMinValue(1).setMaxValue(10).setRequired(false))),
+  new SlashCommandBuilder().setName("chart").setDescription("Show your 7-day Last.fm chart")
+    .addSubcommand(s=>s.setName("artists").setDescription("Your top artists this week")
+      .addStringOption(o=>o.setName("user").setDescription("Last.fm username").setRequired(false))
+      .addIntegerOption(o=>o.setName("limit").setDescription("Number of results (1–10)").setMinValue(1).setMaxValue(10).setRequired(false)))
+    .addSubcommand(s=>s.setName("albums").setDescription("Your top albums this week")
+      .addStringOption(o=>o.setName("user").setDescription("Last.fm username").setRequired(false))
+      .addIntegerOption(o=>o.setName("limit").setDescription("Number of results (1–10)").setMinValue(1).setMaxValue(10).setRequired(false))),
+  new SlashCommandBuilder().setName("recap").setDescription("A compact Last.fm listening recap")
+    .addStringOption(o=>o.setName("period").setDescription("Recap period").setRequired(false).addChoices({name:"7 days",value:"7day"},{name:"1 month",value:"1month"},{name:"3 months",value:"3month"},{name:"6 months",value:"6month"},{name:"12 months",value:"12month"},{name:"All time",value:"overall"}))
+    .addStringOption(o=>o.setName("user").setDescription("Last.fm username").setRequired(false)),
+  new SlashCommandBuilder().setName("overview").setDescription("Your Last.fm listening overview")
+    .addStringOption(o=>o.setName("user").setDescription("Last.fm username").setRequired(false)),
+  new SlashCommandBuilder().setName("profile").setDescription("Show a Last.fm profile card")
+    .addStringOption(o=>o.setName("user").setDescription("Last.fm username").setRequired(false)),
+  new SlashCommandBuilder().setName("friendsfm").setDescription("List a Last.fm user's friends")
+    .addStringOption(o=>o.setName("user").setDescription("Last.fm username").setRequired(false)),
+  new SlashCommandBuilder().setName("taste").setDescription("Compare your top artists with another Last.fm user")
+    .addStringOption(o=>o.setName("user").setDescription("The other Last.fm username").setRequired(true)),
+  new SlashCommandBuilder().setName("loved").setDescription("Show tracks a Last.fm user has loved")
+    .addStringOption(o=>o.setName("user").setDescription("Last.fm username").setRequired(false))
+    .addIntegerOption(o=>o.setName("limit").setDescription("Number of tracks (1–10)").setMinValue(1).setMaxValue(10).setRequired(false)),
+  new SlashCommandBuilder().setName("search").setDescription("Search Last.fm for an artist, album, or track")
+    .addStringOption(o=>o.setName("type").setDescription("What to search for").setRequired(true).addChoices({name:"Artist",value:"artist"},{name:"Album",value:"album"},{name:"Track",value:"track"}))
+    .addStringOption(o=>o.setName("query").setDescription("Search terms").setRequired(true).setMaxLength(100)),
   new ContextMenuCommandBuilder()
     .setName("warnconfessionsender")
     .setType(ApplicationCommandType.Message)
@@ -1264,6 +1322,319 @@ async function enforceProtectedModRole(newMember, oldMember) {
   }
 }
 
+
+const LASTFM_FILE = "./lastfm_links.json";
+const LASTFM_API_KEY = process.env.LASTFM_API_KEY || "";
+const LASTFM_API_SECRET = process.env.LASTFM_API_SECRET || "";
+const LASTFM_API_URL = "https://ws.audioscrobbler.com/2.0/";
+const LASTFM_COLOR = 0xd51007;
+
+async function loadLastFmStore() {
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const data = JSON.parse(await readFile(LASTFM_FILE, "utf8"));
+    return { links: data?.links && typeof data.links === "object" ? data.links : {},
+      pending: data?.pending && typeof data.pending === "object" ? data.pending : {} };
+  } catch { return { links: {}, pending: {} }; }
+}
+async function saveLastFmStore(data) {
+  const { writeFile } = await import("node:fs/promises");
+  await writeFile(LASTFM_FILE, JSON.stringify(data, null, 2), { encoding: "utf8", mode: 0o600 });
+}
+function lastFmSignature(params) {
+  const input = Object.keys(params)
+    .filter(key => key !== "api_sig" && key !== "format" && key !== "callback")
+    .sort()
+    .map(key => key + String(params[key]))
+    .join("") + LASTFM_API_SECRET;
+  return crypto.createHash("md5").update(input, "utf8").digest("hex");
+}
+function requireLastFmConfig() {
+  if (!LASTFM_API_KEY || !LASTFM_API_SECRET) {
+    throw new Error("Last.fm is not configured. Add LASTFM_API_KEY and LASTFM_API_SECRET to the bot's .env file, then restart ModBot.");
+  }
+}
+async function lastFmCall(method, params = {}, signed = false) {
+  requireLastFmConfig();
+  const values = { method, api_key: LASTFM_API_KEY, ...params };
+  if (signed) values.api_sig = lastFmSignature(values);
+  values.format = "json";
+  const isWrite = signed;
+  const response = await fetch(LASTFM_API_URL + (isWrite ? "" : "?" + new URLSearchParams(values)), {
+    method: isWrite ? "POST" : "GET",
+    headers: { "user-agent": "ModBot Last.fm integration/1.0", ...(isWrite ? { "content-type": "application/x-www-form-urlencoded" } : {}) },
+    ...(isWrite ? { body: new URLSearchParams(values) } : {})
+  });
+  let data;
+  try { data = await response.json(); }
+  catch { throw new Error("Last.fm returned an unreadable response. Try again shortly."); }
+  if (!response.ok || data?.error) {
+    const code = data?.error ? " (Last.fm error " + data.error + ")" : "";
+    throw new Error((data?.message || "Last.fm request failed") + code);
+  }
+  return data;
+}
+function fmList(value) { return Array.isArray(value) ? value : value ? [value] : []; }
+function fmText(value) {
+  if (value == null) return "";
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  return String(value.name || value["#text"] || value.text || "");
+}
+function fmTrackArtist(track) { return fmText(track?.artist?.name || track?.artist || track?.artistName) || "Unknown artist"; }
+function fmTrackTitle(track) { return fmText(track?.name || track?.title) || "Unknown track"; }
+function fmSafeUrl(value) {
+  const s = String(value || "");
+  return /^https:\/\/[^\s<>]+$/i.test(s) ? s : null;
+}
+function fmImage(entity) {
+  const images = fmList(entity?.image);
+  for (const image of images.reverse()) {
+    const url = fmText(image);
+    if (fmSafeUrl(url) && !/\/noimage\//i.test(url)) return url;
+  }
+  return null;
+}
+function fmDate(track) {
+  const stamp = Number(track?.date?.uts);
+  return Number.isFinite(stamp) && stamp > 0 ? new Date(stamp * 1000).toLocaleString() : "Now playing";
+}
+function fmTrackLine(track, index = null, showDate = false) {
+  const title = fmTrackTitle(track), artist = fmTrackArtist(track), url = fmSafeUrl(track?.url);
+  const label = url ? "[" + title.replace(/[[\]]/g, "") + "](" + url + ")" : "**" + title + "**";
+  const rank = index == null ? "" : (index + 1) + ". ";
+  const plays = track?.playcount != null ? " · " + Number(track.playcount).toLocaleString() + " plays" : "";
+  const album = fmText(track?.album?.["#text"] || track?.album?.name);
+  const extra = showDate ? " · " + fmDate(track) : "";
+  return rank + label + " — " + artist + (album ? " · *" + album + "*" : "") + plays + extra;
+}
+function fmPeriodLabel(period) {
+  return ({ "7day": "Last 7 days", "1month": "Last month", "3month": "Last 3 months", "6month": "Last 6 months", "12month": "Last 12 months", overall: "All time" })[period] || "All time";
+}
+function fmUserFrom(interaction, optionName = "user") { return interaction.options.getString(optionName)?.trim() || null; }
+async function fmLinkedAccount(discordUserId) {
+  const store = await loadLastFmStore();
+  return { store, account: store.links[discordUserId] || null };
+}
+async function fmResolveUser(interaction, provided, store) {
+  if (provided) return provided.replace(/^@/, "").trim();
+  const account = store.links[interaction.user.id];
+  if (account?.username) return account.username;
+  throw new Error("You haven't connected Last.fm yet. Run /fm link, approve the connection, then press I've authorized. You can also supply a public Last.fm username to commands that have a user option.");
+}
+function fmMakeEmbed(title, description = "") {
+  return new EmbedBuilder().setColor(LASTFM_COLOR).setTitle(title).setDescription(description || "No data returned.");
+}
+function fmProfileLink(username) { return "https://www.last.fm/user/" + encodeURIComponent(username); }
+function fmShortList(values, formatter, limit = 10) {
+  return fmList(values).slice(0, limit).map((value, index) => formatter(value, index)).join("\n") || "No results yet.";
+}
+async function fmFinishAuthorization(interaction) {
+  const store = await loadLastFmStore(), pending = store.pending[interaction.user.id];
+  if (!pending?.token) return interaction.editReply("No pending Last.fm link found. Run /fm link first and approve access on Last.fm.");
+  if (Date.now() - Number(pending.createdAt || 0) > 60 * 60 * 1000) {
+    delete store.pending[interaction.user.id]; await saveLastFmStore(store);
+    return interaction.editReply("That Last.fm authorization expired. Run /fm link and try again.");
+  }
+  const data = await lastFmCall("auth.getSession", { token: pending.token }, true);
+  const session = data?.session;
+  if (!session?.key || !session?.name) throw new Error("Last.fm didn't return an authorized session. Approve the app on Last.fm, then retry. If this keeps happening, run /fm link again.");
+  store.links[interaction.user.id] = { username: String(session.name), sessionKey: String(session.key), linkedAt: new Date().toISOString() };
+  delete store.pending[interaction.user.id];
+  await saveLastFmStore(store);
+  const embed = fmMakeEmbed("Last.fm connected", "✅ Connected **" + session.name + "** to your Discord account.\n\nTry /nowplaying, /recent, /top, /wk, /recap, /overview, /friendsfm, /taste, and /loved.");
+  embed.setURL(fmProfileLink(session.name));
+  return interaction.editReply({ content: "", embeds: [embed], components: [] });
+}
+async function handleFmCommand(interaction) {
+  const parent = interaction.commandName;
+  const sub = parent === "fm" ? interaction.options.getSubcommand() : parent;
+  const privateCommands = parent === "fm" && ["link", "finish", "unlink", "status", "help"].includes(sub);
+  if (privateCommands) await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  else await interaction.deferReply();
+  try {
+    requireLastFmConfig();
+    const { store } = await fmLinkedAccount(interaction.user.id);
+    if (parent === "fm" && sub === "link") {
+      const data = await lastFmCall("auth.getToken", {}, true), token = String(data?.token || "");
+      if (!token) throw new Error("Last.fm didn't provide an authorization token. Please try again.");
+      store.pending[interaction.user.id] = { token, createdAt: Date.now() };
+      await saveLastFmStore(store);
+      const authorizeUrl = "https://www.last.fm/api/auth/?" + new URLSearchParams({ api_key: LASTFM_API_KEY, token });
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setLabel("Authorize Last.fm").setStyle(ButtonStyle.Link).setURL(authorizeUrl),
+        new ButtonBuilder().setCustomId("fm_finish").setLabel("I've authorized").setStyle(ButtonStyle.Success)
+      );
+      const embed = fmMakeEmbed("Connect Last.fm", "1. Press Authorize Last.fm and approve ModBot.\n2. Return to Discord and press I've authorized.\n\nYour session is stored in lastfm_links.json on the bot host. Never share that file or your .env.");
+      return await interaction.editReply({ embeds: [embed], components: [row] });
+    }
+    if (parent === "fm" && sub === "finish") return await fmFinishAuthorization(interaction);
+    if (parent === "fm" && sub === "unlink") {
+      delete store.links[interaction.user.id]; delete store.pending[interaction.user.id]; await saveLastFmStore(store);
+      return await interaction.editReply("Disconnected your Last.fm account from ModBot. Your Last.fm listening history is unchanged.");
+    }
+    if (parent === "fm" && sub === "status") {
+      const linked = store.links[interaction.user.id];
+      const embed = fmMakeEmbed("Last.fm connection", linked ? "✅ Linked as **" + linked.username + "**\n[Open profile](" + fmProfileLink(linked.username) + ")" : "Not connected yet. Run /fm link and approve access.");
+      embed.addFields({ name: "Listening sources", value: "Spotify and supported websites appear when configured to scrobble to Last.fm. Localify needs its own Last.fm scrobbling integration to appear automatically.", inline: false });
+      return await interaction.editReply({ embeds: [embed] });
+    }
+    if (parent === "fm" && sub === "help") {
+      const embed = fmMakeEmbed("Last.fm commands", [
+        "/fm link — connect your account",
+        "/fm finish — finish authorization if the button failed",
+        "/fm status / /fm unlink — manage the connection",
+        "/nowplaying — current track",
+        "/recent — recent scrobbles",
+        "/top tracks|albums|artists — charts by period",
+        "/wk tracks|albums|artists — Last.fm weekly charts",
+        "/chart artists|albums — last 7 days",
+        "/recap — listening summary",
+        "/overview / /profile — profile and scrobble counts",
+        "/friendsfm — Last.fm friends",
+        "/taste user:<name> — shared top artists",
+        "/loved — loved tracks",
+        "/search — Last.fm artist/album/track search"
+      ].join("\n"));
+      return await interaction.editReply({ embeds: [embed] });
+    }
+
+    let user = fmUserFrom(interaction);
+    user = await fmResolveUser(interaction, user, store);
+    if (sub === "nowplaying") {
+      const data = await lastFmCall("user.getRecentTracks", { user, limit: 1, extended: 1 });
+      const track = fmList(data?.recenttracks?.track)[0];
+      if (!track) return await interaction.editReply("No recent tracks were found for " + user + ".");
+      const now = track?.["@attr"]?.nowplaying === "true" || track?.["@attr"]?.nowplaying === true;
+      const embed = fmMakeEmbed(now ? "🎧 Now playing" : "Last scrobble", fmTrackLine(track, null, !now));
+      embed.setAuthor({ name: user + (now ? " is listening" : " last listened"), url: fmProfileLink(user) });
+      embed.setURL(fmSafeUrl(track.url) || fmProfileLink(user));
+      const image = fmImage(track?.album) || fmImage(track);
+      if (image) embed.setThumbnail(image);
+      return await interaction.editReply({ embeds: [embed] });
+    }
+    if (sub === "recent") {
+      const limit = interaction.options.getInteger("limit") || 10;
+      const data = await lastFmCall("user.getRecentTracks", { user, limit, extended: 1 });
+      const tracks = fmList(data?.recenttracks?.track);
+      const embed = fmMakeEmbed(user + " · Recent listens", fmShortList(tracks, (track, i) => fmTrackLine(track, i, true), limit));
+      embed.setURL(fmProfileLink(user));
+      const image = fmImage(tracks[0]?.album); if (image) embed.setThumbnail(image);
+      return await interaction.editReply({ embeds: [embed] });
+    }
+    if (sub === "top") {
+      const type = interaction.options.getSubcommand(), period = interaction.options.getString("period") || "overall";
+      const limit = interaction.options.getInteger("limit") || 10;
+      const method = ({ tracks: "user.getTopTracks", albums: "user.getTopAlbums", artists: "user.getTopArtists" })[type];
+      const root = ({ tracks: "toptracks", albums: "topalbums", artists: "topartists" })[type];
+      const item = ({ tracks: "track", albums: "album", artists: "artist" })[type];
+      const data = await lastFmCall(method, { user, period, limit }), values = fmList(data?.[root]?.[item]);
+      const embed = fmMakeEmbed(user + " · Top " + type, "**Period:** " + fmPeriodLabel(period) + "\n\n" + fmShortList(values, (v, i) => {
+        const name = fmText(v.name) || "Unknown", artist = type === "artists" ? "" : " — " + fmText(v.artist?.name || v.artist || "Unknown artist");
+        const url = fmSafeUrl(v.url), label = url ? "[" + name.replace(/[[\]]/g, "") + "](" + url + ")" : "**" + name + "**";
+        return (i + 1) + ". " + label + artist + " · " + Number(v.playcount || 0).toLocaleString() + " plays";
+      }, limit));
+      embed.setURL(fmProfileLink(user)); const image = fmImage(values[0]); if (image) embed.setThumbnail(image);
+      return await interaction.editReply({ embeds: [embed] });
+    }
+    if (sub === "wk" || sub === "chart") {
+      const type = interaction.options.getSubcommand(), limit = interaction.options.getInteger("limit") || 10;
+      const methods = sub === "wk"
+        ? { tracks: ["user.getWeeklyTrackChart", "weeklytrackchart", "track"], albums: ["user.getWeeklyAlbumChart", "weeklyalbumchart", "album"], artists: ["user.getWeeklyArtistChart", "weeklyartistchart", "artist"] }
+        : { albums: ["user.getTopAlbums", "topalbums", "album"], artists: ["user.getTopArtists", "topartists", "artist"] };
+      const details = methods[type], params = sub === "chart" ? { user, period: "7day", limit } : { user, limit };
+      const data = await lastFmCall(details[0], params), values = fmList(data?.[details[1]]?.[details[2]]);
+      const embed = fmMakeEmbed(user + " · " + (sub === "wk" ? "Weekly " : "7-day ") + type, fmShortList(values, (v, i) => {
+        const name = fmText(v.name) || "Unknown", artist = type === "artists" ? "" : " — " + fmText(v.artist?.name || v.artist || "Unknown artist");
+        const url = fmSafeUrl(v.url);
+        return (i + 1) + ". " + (url ? "[" + name.replace(/[[\]]/g, "") + "](" + url + ")" : "**" + name + "**") + artist + " · " + Number(v.playcount || 0).toLocaleString() + " plays";
+      }, limit));
+      embed.setURL(fmProfileLink(user)); return await interaction.editReply({ embeds: [embed] });
+    }
+    if (sub === "recap") {
+      const period = interaction.options.getString("period") || "7day";
+      const [ad, td, ald] = await Promise.all([
+        lastFmCall("user.getTopArtists", { user, period, limit: 5 }),
+        lastFmCall("user.getTopTracks", { user, period, limit: 5 }),
+        lastFmCall("user.getTopAlbums", { user, period, limit: 5 })
+      ]);
+      const artists = fmList(ad?.topartists?.artist), tracks = fmList(td?.toptracks?.track), albums = fmList(ald?.topalbums?.album);
+      const embed = fmMakeEmbed("📊 " + user + " · Listening recap", "**Period:** " + fmPeriodLabel(period));
+      embed.setURL(fmProfileLink(user));
+      embed.addFields(
+        { name: "Top artists", value: fmShortList(artists, (a, i) => (i+1) + ". " + fmText(a.name) + " · " + Number(a.playcount||0).toLocaleString(), 5), inline: true },
+        { name: "Top tracks", value: fmShortList(tracks, (t, i) => (i+1) + ". " + fmText(t.name) + " — " + fmText(t.artist?.name||t.artist), 5), inline: true },
+        { name: "Top albums", value: fmShortList(albums, (a, i) => (i+1) + ". " + fmText(a.name) + " — " + fmText(a.artist?.name||a.artist), 5), inline: true }
+      );
+      return await interaction.editReply({ embeds: [embed] });
+    }
+    if (sub === "overview" || sub === "profile") {
+      const [infoData, recentData, topData] = await Promise.all([
+        lastFmCall("user.getInfo", { user }),
+        lastFmCall("user.getRecentTracks", { user, limit: 1 }),
+        lastFmCall("user.getTopArtists", { user, period: "overall", limit: 1 })
+      ]);
+      const info = infoData?.user;
+      if (!info?.name) throw new Error("Last.fm could not find user " + user + ".");
+      const recent = fmList(recentData?.recenttracks?.track)[0], top = fmList(topData?.topartists?.artist)[0];
+      const embed = fmMakeEmbed((sub === "profile" ? "🎵 " : "📈 ") + info.name, "Listening profile on Last.fm");
+      embed.setURL(fmSafeUrl(info.url) || fmProfileLink(info.name));
+      embed.addFields(
+        { name: "Total scrobbles", value: Number(info.playcount||0).toLocaleString(), inline: true },
+        { name: "Registered", value: info.registered?.unixtime ? new Date(Number(info.registered.unixtime)*1000).toLocaleDateString() : "Unknown", inline: true },
+        { name: "Country", value: fmText(info.country) || "Not set", inline: true },
+        { name: "Top artist", value: top ? fmText(top.name) + " · " + Number(top.playcount||0).toLocaleString() + " plays" : "No data yet", inline: true },
+        { name: "Last listen", value: recent ? fmTrackLine(recent, null, true).slice(0, 1000) : "No recent tracks", inline: false }
+      );
+      const img = fmImage(info) || fmImage(recent?.album); if (img) embed.setThumbnail(img);
+      embed.setFooter({ text: "Powered by Last.fm · listening must be scrobbled to Last.fm first" });
+      return await interaction.editReply({ embeds: [embed] });
+    }
+    if (sub === "friendsfm") {
+      const data = await lastFmCall("user.getFriends", { user, limit: 10 }), friends = fmList(data?.friends?.user);
+      const embed = fmMakeEmbed(user + " · Last.fm friends", friends.map((f,i) => (i+1) + ". [" + fmText(f.name) + "](" + fmProfileLink(f.name) + ") · " + Number(f.playcount||0).toLocaleString() + " scrobbles").join("\n") || "This user has no public Last.fm friends.");
+      embed.setURL(fmProfileLink(user)); return await interaction.editReply({ embeds: [embed] });
+    }
+    if (sub === "taste") {
+      const other = interaction.options.getString("user", true).trim().replace(/^@/, ""), own = store.links[interaction.user.id]?.username;
+      if (!own) throw new Error("Connect your account first with /fm link so I can compare your taste.");
+      const [aData,bData] = await Promise.all([
+        lastFmCall("user.getTopArtists", { user: own, period: "overall", limit: 100 }),
+        lastFmCall("user.getTopArtists", { user: other, period: "overall", limit: 100 })
+      ]);
+      const a = fmList(aData?.topartists?.artist), b = fmList(bData?.topartists?.artist);
+      const bNames = new Map(b.map(x => [fmText(x.name).toLowerCase(), x]));
+      const shared = a.filter(x => bNames.has(fmText(x.name).toLowerCase())).slice(0, 10);
+      const lines = shared.map((x,i)=> (i+1) + ". **" + fmText(x.name) + "** — you: " + Number(x.playcount||0).toLocaleString() + " · " + other + ": " + Number(bNames.get(fmText(x.name).toLowerCase()).playcount||0).toLocaleString());
+      const embed = fmMakeEmbed("🎧 Taste match · " + own + " × " + other, lines.join("\n") || "No shared top artists were found in the sampled all-time top 100.");
+      embed.addFields({ name: "Shared artists", value: String(shared.length), inline: true });
+      return await interaction.editReply({ embeds: [embed] });
+    }
+    if (sub === "loved") {
+      const limit = interaction.options.getInteger("limit") || 10, data = await lastFmCall("user.getLovedTracks", { user, limit });
+      const tracks = fmList(data?.lovedtracks?.track), embed = fmMakeEmbed(user + " · Loved tracks", fmShortList(tracks, (t,i)=>fmTrackLine(t,i), limit));
+      embed.setURL(fmProfileLink(user)); const img=fmImage(tracks[0]?.album); if(img) embed.setThumbnail(img);
+      return await interaction.editReply({ embeds: [embed] });
+    }
+    if (sub === "search") {
+      const type = interaction.options.getString("type", true), query = interaction.options.getString("query", true).trim();
+      const method = ({ artist:"artist.search", album:"album.search", track:"track.search" })[type];
+      const root = ({ artist:"results.artistmatches.artist", album:"results.albummatches.album", track:"results.trackmatches.track" })[type];
+      const data = await lastFmCall(method, { [type]: query, limit: 8 });
+      const values = root.split(".").reduce((value, key)=>value?.[key], data), results = fmList(values);
+      const embed = fmMakeEmbed("Last.fm search · " + type, results.map((v,i)=>{
+        const name=fmText(v.name)||"Unknown", artist=type==="artist"?"":" — "+fmText(v.artist?.name||v.artist||"Unknown artist"), url=fmSafeUrl(v.url);
+        return (i+1)+". "+(url?"["+name.replace(/[[\]]/g,"")+"]("+url+")":"**"+name+"**")+artist;
+      }).join("\n")||"No matches found.");
+      const img=fmImage(results[0]); if(img) embed.setThumbnail(img);
+      return await interaction.editReply({ embeds: [embed] });
+    }
+    throw new Error("Unknown Last.fm command. Run /fm help for the command list.");
+  } catch (error) {
+    console.error("Last.fm command failed:", error);
+    return await interaction.editReply("⚠️ " + String(error?.message || "Something went wrong with Last.fm.").slice(0, 1800)).catch(()=>null);
+  }
+}
+
 async function deployCommands() {
   if (!DEPLOY_COMMANDS) {
     console.log("ℹ️ Automatic command deployment is disabled.");
@@ -1448,7 +1819,22 @@ client.on(Events.InteractionCreate, async interaction => {
       return await handleSecretReplyModal(interaction);
     }
 
+    if (interaction.isButton() && interaction.customId === "fm_finish") {
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      try {
+        requireLastFmConfig();
+        return await fmFinishAuthorization(interaction);
+      } catch (error) {
+        console.error("Last.fm authorization finish failed:", error);
+        return await interaction.editReply("⚠️ " + String(error?.message || "Could not finish Last.fm authorization.").slice(0, 1800)).catch(()=>null);
+      }
+    }
+
     if (!interaction.isChatInputCommand()) return;
+
+    if (["fm","nowplaying","recent","top","wk","chart","recap","overview","profile","friendsfm","taste","loved","search"].includes(interaction.commandName)) {
+      return await handleFmCommand(interaction);
+    }
 
     const ctx = createInteractionContext(interaction);
 
