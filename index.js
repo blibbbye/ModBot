@@ -1363,8 +1363,10 @@ function lastFmSignature(params) {
   return crypto.createHash("md5").update(input, "utf8").digest("hex");
 }
 function requireLastFmConfig() {
-  if (!LASTFM_API_KEY || !LASTFM_API_SECRET) {
-    throw new Error("Last.fm is not configured. Add LASTFM_API_KEY and LASTFM_API_SECRET to the bot's .env file, then restart ModBot.");
+  const missingKey = !LASTFM_API_KEY || /^(GET_FROM_|PUT_YOUR_|CHANGE_ME)/i.test(LASTFM_API_KEY);
+  const missingSecret = !LASTFM_API_SECRET || /^(GET_FROM_|PUT_YOUR_|CHANGE_ME)/i.test(LASTFM_API_SECRET);
+  if (missingKey || missingSecret) {
+    throw new Error("Last.fm is not configured. Create an API application at https://www.last.fm/api/account, put its real LASTFM_API_KEY and LASTFM_API_SECRET in the bot's private .env file, then restart ModBot.");
   }
 }
 async function lastFmCall(method, params = {}, signed = false) {
@@ -1465,7 +1467,8 @@ async function handleFmCommand(interaction) {
   if (privateCommands) await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   else await interaction.deferReply();
   try {
-    requireLastFmConfig();
+    const configNotRequired = parent === "fm" && ["unlink", "status", "help"].includes(sub);
+    if (!configNotRequired) requireLastFmConfig();
     const { store } = await fmLinkedAccount(interaction.user.id);
     if (parent === "fm" && sub === "link") {
       const data = await lastFmCall("auth.getToken", {}, true), token = String(data?.token || "");
@@ -1735,14 +1738,24 @@ function fmTimestampSeconds(value) {
   const n = Date.parse(String(value));
   return Number.isFinite(n) ? Math.floor(n / 1000) : 0;
 }
+function fmField(record, candidates) {
+  if (!record || typeof record !== "object") return undefined;
+  const normalize = value => String(value).toLowerCase().replace(/[^a-z0-9]/g, "");
+  const keys = new Map(Object.keys(record).map(key => [normalize(key), key]));
+  for (const candidate of candidates) {
+    const originalKey = keys.get(normalize(candidate));
+    if (originalKey !== undefined && record[originalKey] !== null && record[originalKey] !== "") return record[originalKey];
+  }
+  return undefined;
+}
 function fmNormalizeImportedRecord(record, source) {
-  const track = String(record?.master_metadata_track_name || record?.trackName || record?.track_name || record?.track || record?.songTitle || record?.name || "").trim();
-  const artist = String(record?.master_metadata_album_artist_name || record?.artistName || record?.artist_name || record?.artist || record?.albumArtist || "").trim();
-  const album = String(record?.master_metadata_album_album_name || record?.albumName || record?.album_name || record?.album || "").trim();
-  const playedMs = Number(record?.ms_played ?? record?.msPlayed ?? record?.playDurationMillis ?? record?.play_duration_ms ?? record?.playedMs ?? record?.durationInMillis ?? 0);
-  const endValue = record?.ts ?? record?.endTime ?? record?.eventEndTimestamp ?? record?.playedAt ?? record?.playDate ?? record?.timestamp;
+  const track = String(fmField(record, ["master_metadata_track_name","trackName","track_name","track","songTitle","name"]) || "").trim();
+  const artist = String(fmField(record, ["master_metadata_album_artist_name","artistName","artist_name","artist","albumArtist"]) || "").trim();
+  const album = String(fmField(record, ["master_metadata_album_album_name","albumName","album_name","album"]) || "").trim();
+  const playedMs = Number(fmField(record, ["ms_played","msPlayed","playDurationMillis","play_duration_ms","playedMs","durationInMillis","Play Duration Milliseconds"]) || 0);
+  const endValue = fmField(record, ["ts","endTime","eventEndTimestamp","Event End Timestamp","playedAt","playDate","timestamp","Date"]);
   let timestamp = fmTimestampSeconds(endValue);
-  if (source === "spotify" || record?.ts || record?.endTime || record?.eventEndTimestamp) {
+  if (source === "spotify" || endValue === record?.ts || /end/i.test(String(endValue||""))) {
     timestamp = Math.max(0, timestamp - Math.floor(Math.max(0, playedMs) / 1000));
   }
   return { track, artist, album, playedMs, timestamp };
