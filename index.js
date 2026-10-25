@@ -7,6 +7,7 @@ import {
   ModalBuilder, TextInputBuilder, TextInputStyle
 } from "discord.js";
 import crypto from "node:crypto";
+import { createServer } from "node:http";
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
@@ -110,6 +111,7 @@ const commands = [
     .addSubcommand(s=>s.setName("finish").setDescription("Finish Last.fm authorization after approving it"))
     .addSubcommand(s=>s.setName("unlink").setDescription("Disconnect your Last.fm account"))
     .addSubcommand(s=>s.setName("status").setDescription("Check your Last.fm connection"))
+    .addSubcommand(s=>s.setName("localify").setDescription("Generate a private connection key for the Localify player"))
     .addSubcommand(s=>s.setName("help").setDescription("Show Last.fm commands")),
   new SlashCommandBuilder().setName("nowplaying").setDescription("See what you or a Last.fm user is listening to")
     .addStringOption(o=>o.setName("user").setDescription("Last.fm username (defaults to your linked account)").setRequired(false)),
@@ -1328,6 +1330,9 @@ const LASTFM_API_KEY = process.env.LASTFM_API_KEY || "";
 const LASTFM_API_SECRET = process.env.LASTFM_API_SECRET || "";
 const LASTFM_API_URL = "https://ws.audioscrobbler.com/2.0/";
 const LASTFM_COLOR = 0xd51007;
+const LASTFM_BRIDGE_PORT = Math.max(1024, Math.min(65535, Number(process.env.LASTFM_BRIDGE_PORT || 4220)));
+const LOCALIFY_ORIGINS = (process.env.LOCALIFY_ORIGINS || "").split(",").map(s=>s.trim()).filter(Boolean);
+const lastFmBridgeRequests = new Map();
 
 async function loadLastFmStore() {
   try {
@@ -1448,7 +1453,7 @@ async function fmFinishAuthorization(interaction) {
 async function handleFmCommand(interaction) {
   const parent = interaction.commandName;
   const sub = parent === "fm" ? interaction.options.getSubcommand() : parent;
-  const privateCommands = parent === "fm" && ["link", "finish", "unlink", "status", "help"].includes(sub);
+  const privateCommands = parent === "fm" && ["link", "finish", "unlink", "status", "localify", "help"].includes(sub);
   if (privateCommands) await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   else await interaction.deferReply();
   try {
@@ -1475,7 +1480,17 @@ async function handleFmCommand(interaction) {
     if (parent === "fm" && sub === "status") {
       const linked = store.links[interaction.user.id];
       const embed = fmMakeEmbed("Last.fm connection", linked ? "✅ Linked as **" + linked.username + "**\n[Open profile](" + fmProfileLink(linked.username) + ")" : "Not connected yet. Run /fm link and approve access.");
-      embed.addFields({ name: "Listening sources", value: "Spotify and supported websites appear when configured to scrobble to Last.fm. Localify needs its own Last.fm scrobbling integration to appear automatically.", inline: false });
+      embed.addFields({ name: "Localify", value: linked?.localifyToken ? "✅ Connection key generated. You can regenerate it with /fm localify." : "Not connected yet. Run /fm localify after linking Last.fm.", inline: false });
+      embed.addFields({ name: "Listening sources", value: "Spotify and supported websites appear when configured to scrobble to Last.fm. Localify playback is sent through the optional local bridge when ModBot is running on the same computer.", inline: false });
+      return await interaction.editReply({ embeds: [embed] });
+    }
+    if (parent === "fm" && sub === "localify") {
+      const linked = store.links[interaction.user.id];
+      if (!linked?.sessionKey) throw new Error("Connect your Last.fm account first with /fm link.");
+      linked.localifyToken = crypto.randomBytes(24).toString("base64url");
+      linked.localifyTokenCreatedAt = new Date().toISOString();
+      await saveLastFmStore(store);
+      const embed = fmMakeEmbed("Connect Localify", "Copy this key into Localify → Account settings → Last.fm scrobbling. It grants Localify permission to scrobble to **" + linked.username + "**.\n\n" + linked.localifyToken + "\n\nKeep ModBot running on the same computer as Localify. Run /fm localify again to revoke this key and make a new one.");
       return await interaction.editReply({ embeds: [embed] });
     }
     if (parent === "fm" && sub === "help") {
@@ -1638,6 +1653,87 @@ async function handleFmCommand(interaction) {
   }
 }
 
+
+function localifyOriginAllowed(origin) {
+  if (!origin) return true;
+  if (LOCALIFY_ORIGINS.includes(origin)) return true;
+  return /^https:\/\/blibbbye\.github\.io$/i.test(origin) ||
+    /^https:\/\/sites\.google\.com$/i.test(origin) ||
+    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+}
+function bridgeJson(res, status, data) {
+  const body = JSON.stringify(data);
+  res.writeHead(status, { "content-type":"application/json; charset=utf-8", "cache-control":"no-store", "content-length":Buffer.byteLength(body) });
+  res.end(body);
+}
+function startLastFmBridge() {
+  if (!LASTFM_API_KEY || !LASTFM_API_SECRET) {
+    console.log("ℹ️ Localify Last.fm bridge is off until LASTFM_API_KEY and LASTFM_API_SECRET are configured.");
+    return;
+  }
+  const server = createServer(async (req, res) => {
+    const origin = String(req.headers.origin || "");
+    res.setHeader("Vary", "Origin");
+    if (localifyOriginAllowed(origin) && origin) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "content-type");
+      res.setHeader("Access-Control-Allow-Private-Network", "true");
+    }
+    if (!localifyOriginAllowed(origin)) return bridgeJson(res, 403, { ok:false, error:"Origin is not allowed by the Localify bridge." });
+    if (req.method === "OPTIONS") { res.writeHead(204); return res.end(); }
+    const url = new URL(req.url || "/", "http://127.0.0.1");
+    if (req.method === "GET" && url.pathname === "/health") {
+      return bridgeJson(res, 200, { ok:true, service:"ModBot Last.fm bridge", port:LASTFM_BRIDGE_PORT });
+    }
+    if (req.method !== "POST" || !["/verify","/now-playing","/scrobble"].includes(url.pathname)) {
+      return bridgeJson(res, 404, { ok:false, error:"Not found." });
+    }
+    try {
+      let raw = "";
+      for await (const chunk of req) {
+        raw += chunk.toString("utf8");
+        if (raw.length > 20000) return bridgeJson(res, 413, { ok:false, error:"Request is too large." });
+      }
+      let body;
+      try { body = JSON.parse(raw || "{}"); } catch { return bridgeJson(res, 400, { ok:false, error:"Invalid JSON." }); }
+      const token = String(body.token || "");
+      if (token.length < 24 || token.length > 160) return bridgeJson(res, 401, { ok:false, error:"Localify key is missing or invalid. Generate a new one with /fm localify." });
+      const store = await loadLastFmStore();
+      const account = Object.values(store.links).find(item => item?.localifyToken === token && item?.sessionKey);
+      if (!account) return bridgeJson(res, 401, { ok:false, error:"Localify key is invalid or revoked. Generate a new one with /fm localify." });
+      if (url.pathname === "/verify") return bridgeJson(res, 200, { ok:true, username:account.username });
+      const now = Date.now();
+      const hits = (lastFmBridgeRequests.get(token) || []).filter(ts => now-ts < 60000);
+      if (hits.length >= 20) return bridgeJson(res, 429, { ok:false, error:"Too many requests. Please wait a minute." });
+      hits.push(now); lastFmBridgeRequests.set(token, hits);
+      const track = String(body.track || "").trim().slice(0, 250);
+      const artist = String(body.artist || "").trim().slice(0, 250);
+      const album = String(body.album || "").trim().slice(0, 250);
+      const duration = Math.floor(Number(body.duration) || 0);
+      if (!track || !artist) return bridgeJson(res, 400, { ok:false, error:"Track title and artist are required." });
+      if (url.pathname === "/now-playing") {
+        const params = { sk:account.sessionKey, track, artist };
+        if (album) params.album = album;
+        if (duration > 0) params.duration = duration;
+        await lastFmCall("track.updateNowPlaying", params, true);
+        return bridgeJson(res, 200, { ok:true, username:account.username });
+      }
+      const timestamp = Math.floor(Number(body.timestamp) || 0);
+      if (duration <= 30 || timestamp <= 0) return bridgeJson(res, 400, { ok:false, error:"Track does not meet the scrobble requirements." });
+      const params = { sk:account.sessionKey, track, artist, timestamp, duration, chosenByUser:1 };
+      if (album) params.album = album;
+      await lastFmCall("track.scrobble", params, true);
+      return bridgeJson(res, 200, { ok:true, username:account.username });
+    } catch (error) {
+      console.error("Localify Last.fm bridge request failed:", error?.message || error);
+      return bridgeJson(res, 502, { ok:false, error:String(error?.message || "Last.fm request failed").slice(0, 300) });
+    }
+  });
+  server.on("error", error => console.error("⚠️ Localify Last.fm bridge couldn't start:", error.message));
+  server.listen(LASTFM_BRIDGE_PORT, "127.0.0.1", () => console.log("🎧 Localify Last.fm bridge listening on 127.0.0.1:" + LASTFM_BRIDGE_PORT));
+}
+
 async function deployCommands() {
   if (!DEPLOY_COMMANDS) {
     console.log("ℹ️ Automatic command deployment is disabled.");
@@ -1723,6 +1819,7 @@ async function updateMemberCountChannels() {
 
 client.once(Events.ClientReady, async readyClient => {
   console.log(`✅ Logged in as ${readyClient.user.tag}`);
+  startLastFmBridge();
   readyClient.user.setPresence({
     activities: [{ name: "/help | modmodsunreleased" }],
     status: "online"
