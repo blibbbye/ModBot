@@ -24,6 +24,11 @@ const ACTIONS_CHANNEL_NAME = "actions";
 const INVITE_CACHE_FILE = "./invite_cache.json";
 const DIH_SETTINGS_FILE = "./dih_settings.json";
 const DIH_CONTROL_USER_ID = "863446773326151700";
+const OWNER_COMMAND_USER_IDS = new Set([
+  "863446773326151700",
+  "926417866922811392"
+]);
+const PROTECTED_MOD_ROLE_OWNER_IDS = OWNER_COMMAND_USER_IDS;
 
 // Put channel names or channel IDs here.
 // Example: ["general", "123456789012345678"]
@@ -37,7 +42,6 @@ const AUTO_DELETE_ALLOWED_USER_ID = "926417866922811392";
 const PROTECTED_MOD_ROLE_NAME = "YANDHI 💿🩷";
 
 // This user is allowed to keep the protected role even if it has moderation perks.
-const PROTECTED_MOD_ROLE_OWNER_ID = "863446773326151700";
 const DEPLOY_COMMANDS = (process.env.DEPLOY_COMMANDS || "true").toLowerCase() !== "false";
 if (!TOKEN) throw new Error("Missing DISCORD_TOKEN in .env");
 if (!CLIENT_ID) throw new Error("Missing DISCORD_CLIENT_ID in .env");
@@ -176,12 +180,48 @@ async function saveDihSettings(settings) {
 
 async function handleBotMention(message) {
   if (!client.user || message.author?.bot) return false;
-  if (!message.mentions.users.has(client.user.id)) return false;
+
+  const botMember = message.guild?.members?.me ||
+    await message.guild?.members?.fetchMe?.().catch(() => null);
+
+  const directlyMentioned = message.mentions.users.has(client.user.id);
+  const botRoleMentioned = Boolean(
+    botMember &&
+    message.mentions.roles.some(role => botMember.roles.cache.has(role.id))
+  );
+
+  if (!directlyMentioned && !botRoleMentioned) return false;
+
+  // Remove bot and role mention tokens to see whether the user also wrote a message.
+  const additionalText = message.content
+    .replace(/<@!?\d+>/g, " ")
+    .replace(/<@&\d+>/g, " ")
+    .trim();
 
   await message.channel.send({
     content: "https://klipy.com/gifs/kanye-bully",
     allowedMentions: { parse: [] }
   });
+
+  if (additionalText) {
+    const responses = [
+      "Yes.", "No.", "Maybe.", "Probably.", "Definitely.", "Absolutely not.",
+      "I think so.", "I don't think so.", "Ask me again later.",
+      "The answer is unclear.", "Could be.", "Not a chance.",
+      "Sounds good to me.", "I'm not sure about that.",
+      "You already know the answer.", "Perhaps.", "Bet.",
+      "Nah.", "Yeah, probably.", "Hard to say.",
+      "The universe says yes.", "The universe says no.",
+      "Try again.", "I'm leaning yes.", "I'm leaning no.",
+      "50/50.", "For sure.", "No comment.",
+      "That is a possibility.", "I refuse to elaborate."
+    ];
+    await message.channel.send({
+      content: randomPick(responses),
+      allowedMentions: { parse: [] }
+    });
+  }
+
   return true;
 }
 
@@ -191,7 +231,7 @@ async function handleDihMessage(message) {
   const content = message.content.trim().toLowerCase();
 
   // Only the configured controller can switch this feature on or off.
-  if (message.author.id === DIH_CONTROL_USER_ID && (content === "disable!dih" || content === "enable!dih")) {
+  if (OWNER_COMMAND_USER_IDS.has(message.author.id) && (content === "disable!dih" || content === "enable!dih")) {
     const enabled = content === "enable!dih";
     await saveDihSettings({
       enabled,
@@ -253,8 +293,8 @@ async function handleSayMessage(message) {
   const match = message.content.match(/^!say(?:\s+([\s\S]*))?$/i);
   if (!match) return false;
 
-  // Ignore other users' !say attempts; this feature belongs only to Blib.
-  if (message.author.id !== "863446773326151700") return false;
+  // Only the configured owner accounts can use !say.
+  if (!OWNER_COMMAND_USER_IDS.has(message.author.id)) return false;
 
   let sayText = (match[1] || "").trim();
   if (sayText.length >= 2 && sayText.startsWith('"') && sayText.endsWith('"')) {
@@ -789,15 +829,7 @@ function getSobDayKey(date = new Date()) {
 
 function isMainCoOwner(subject) {
   const userId = subject?.user?.id || subject?.interaction?.user?.id;
-  return userId === "863446773326151700";
-}
-
-async function rejectSecondCoOwnerSobCommand(ctx) {
-  const userId = ctx.user?.id || ctx.interaction?.user?.id;
-  if (userId === "926417866922811392") {
-    return await ctx.reply("Hahaha you thought Moo Moo lil bro :sob:", true);
-  }
-  return false;
+  return OWNER_COMMAND_USER_IDS.has(userId);
 }
 
 async function handleSobPrefixCommand(message) {
@@ -805,12 +837,7 @@ async function handleSobPrefixCommand(message) {
   const command = message.content.trim().toLowerCase();
   if (!["!sob", "!stopsob", "!unsob"].includes(command)) return false;
 
-  // Preserve the second co-owner's special denial; only the main co-owner can activate these.
-  if (message.author.id === "926417866922811392") {
-    await message.reply("Hahaha you thought Moo Moo lil bro :sob:").catch(() => null);
-    return true;
-  }
-  if (message.author.id !== "863446773326151700") return false;
+  if (!OWNER_COMMAND_USER_IDS.has(message.author.id)) return false;
 
   const ctx = createMessageContext(message);
   if (command === "!sob") await run_sob(ctx);
@@ -870,7 +897,6 @@ async function reactToTodaysMessages(channel) {
 }
 
 async function run_sob(ctx) {
-  if (await rejectSecondCoOwnerSobCommand(ctx)) return;
   if (!isMainCoOwner(ctx)) {
     return await ctx.reply("You don't have permission to use this.", true);
   }
@@ -1235,7 +1261,7 @@ function hasModerationPerks(role) {
 
 async function enforceProtectedModRole(newMember, oldMember) {
   if (!newMember?.guild) return;
-  if (newMember.user?.id === PROTECTED_MOD_ROLE_OWNER_ID) return;
+  if (PROTECTED_MOD_ROLE_OWNER_IDS.has(newMember.user?.id)) return;
 
   const protectedRole = newMember.guild.roles.cache.find(
     role => role.name === PROTECTED_MOD_ROLE_NAME
