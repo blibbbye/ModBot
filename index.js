@@ -207,14 +207,14 @@ async function handleBotMention(message) {
     const responses = [
       "Yes.", "No.", "Maybe.", "Probably.", "Definitely.", "Absolutely not.",
       "I think so.", "I don't think so.", "Ask me again later.",
-      "The answer is unclear.", "Could be.", "Not a chance.",
+      "Fuck you.", "Wow really i have thought so all my life :D", "Not a chance.",
       "Sounds good to me.", "I'm not sure about that.",
       "You already know the answer.", "Perhaps.", "Bet.",
       "Nah.", "Yeah, probably.", "Hard to say.",
-      "The universe says yes.", "The universe says no.",
-      "Try again.", "I'm leaning yes.", "I'm leaning no.",
-      "50/50.", "For sure.", "No comment.",
-      "That is a possibility.", "I refuse to elaborate."
+      "HAHAHHA fuck no u little kid AHAHAH", "I have a crush on you",
+      "Try again.", "hmmmmm lemme think about it", "YES YES YES OMG OMG OMG OYAYAYAYYAYAYA",
+      "100%", "For sure.", "No comment.",
+      "Possible..", "hihihihihi"
     ];
     await message.channel.send({
       content: randomPick(responses),
