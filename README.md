@@ -25,7 +25,7 @@ All users are deleted from those channels except Discord user ID `92641786692281
 The bot needs **Manage Messages** permission in each configured channel.
 
 ## Protected Moderation Role
-The role `YANDHI 💿🩷` is checked whenever a member's roles change. If that role has moderation/admin permissions (Administrator, Manage Server, Manage Roles, Manage Channels, Manage Messages, Manage Webhooks, Kick Members, Ban Members, or Timeout Members), ModBot removes it when it is newly assigned to anyone except user ID `863446773326151700`.
+The role `YANDHI 💿🩷` is checked whenever a member's roles change. If that role has moderation/admin permissions (Administrator, Manage Server, Manage Roles, Manage Channels, Manage Messages, Manage Webhooks, Kick Members, Ban Members, or Timeout Members), ModBot removes it when newly assigned to anyone except user IDs `863446773326151700` and `926417866922811392`.
 
 The bot needs **Manage Roles**, and the protected role must be below ModBot's highest role in the server role list.
 
@@ -34,9 +34,9 @@ The bot needs **Manage Roles**, and the protected role must be below ModBot's hi
 - Sending `!dih` produces a screenshot-style purple embed titled with the sender's name and “dih size”.
 - It shows the random inch rating in bold, an `8===D` line with one equals sign per inch, and the sender's profile picture on the right.
 - Most users get 1–10 inches; there is a 25% chance of rolling 10–20 instead.
-- User ID `863446773326151700` gets the special 50–100 range and is the only person allowed to toggle the command.
+- User ID `863446773326151700` gets the special 50–100 range. Both owner IDs `863446773326151700` and `926417866922811392` can toggle the command.
 - User ID `926417866922811392` gets a random 1–10 millimeter result instead of inches.
-- That user can type `disable!dih` to turn it off for everyone and `enable!dih` to turn it back on. Its enabled state is saved in `dih_settings.json`.
+- Either owner can type `disable!dih` to turn it off for everyone and `enable!dih` to turn it back on. Its enabled state is saved in `dih_settings.json`.
 
 - To use the `!dih` text command, enable **Message Content Intent** under Discord Developer Portal → your app → **Bot** → **Privileged Gateway Intents**. The code also requests `GatewayIntentBits.MessageContent`.
 
@@ -45,10 +45,10 @@ The bot needs **Manage Roles**, and the protected role must be below ModBot's hi
 - `!sob`: turn on sob mode in the current channel for messages from today.
 - `!stopsob`: stop future sob reactions in the current channel, leaving existing reactions.
 - `!unsob`: stop sob mode and remove ModBot's 😭 reactions from the current channel.
-- The sob controls only work for Discord user ID `863446773326151700`. User ID `926417866922811392` receives the existing joke denial.
+- The sob controls work for both Discord user IDs `863446773326151700` and `926417866922811392`.
 
 ## Owner-only `!say`
-Only Discord user ID `863446773326151700` can use this.
+Only Discord user IDs `863446773326151700` and `926417866922811392` can use this.
 - Send `!say "your message"` and ModBot posts the text as itself.
 - Attach one or more files to the same Discord message as `!say`; ModBot will send the text and files as its own message.
 - To send file(s) without text, send `!say` and attach the files to that same message.
@@ -60,5 +60,6 @@ The `/confess` slash command and confession-submit button/modal are disabled. Th
 
 
 ## Bot ping
-- Mention ModBot in a server message and it posts the Kanye Bully GIF link: https://klipy.com/gifs/kanye-bully
+- Mention ModBot directly or mention a role assigned to ModBot and it posts the Kanye Bully GIF link: https://klipy.com/gifs/kanye-bully
+- If the message contains extra text after the mention (for example, `@ModBot Hello`), it also posts a random answer such as yes, no, maybe, probably, or one of many other responses.
 - The bot ignores its own messages to avoid responding to the link it just posted.
