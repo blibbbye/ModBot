@@ -60,6 +60,6 @@ The `/confess` slash command and confession-submit button/modal are disabled. Th
 
 
 ## Bot ping
-- Mention ModBot directly or mention a role assigned to ModBot and it posts the Kanye Bully GIF link: https://klipy.com/gifs/kanye-bully
-- If the message contains extra text after the mention (for example, `@ModBot Hello`), it also posts a random answer such as yes, no, maybe, probably, or one of many other responses.
+- A bare mention of ModBot or a role assigned to it posts the Kanye Bully GIF link: https://klipy.com/gifs/kanye-bully
+- If the mention includes extra text (for example, `@ModBot Hello`), it posts only a random text answer such as yes, no, maybe, or one of many other responses, without the GIF.
 - The bot ignores its own messages to avoid responding to the link it just posted.
