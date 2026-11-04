@@ -198,11 +198,6 @@ async function handleBotMention(message) {
     .replace(/<@&\d+>/g, " ")
     .trim();
 
-  await message.channel.send({
-    content: "https://klipy.com/gifs/kanye-bully",
-    allowedMentions: { parse: [] }
-  });
-
   if (additionalText) {
     const responses = [
       "Yes.", "No.", "Maybe.", "Probably.", "Definitely.", "Absolutely not.",
@@ -218,6 +213,11 @@ async function handleBotMention(message) {
     ];
     await message.channel.send({
       content: randomPick(responses),
+      allowedMentions: { parse: [] }
+    });
+  } else {
+    await message.channel.send({
+      content: "https://klipy.com/gifs/kanye-bully",
       allowedMentions: { parse: [] }
     });
   }
