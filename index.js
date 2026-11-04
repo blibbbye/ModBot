@@ -198,6 +198,7 @@ async function handleBotMention(message) {
     .replace(/<@&\d+>/g, " ")
     .trim();
 
+  let response;
   if (additionalText) {
     const responses = [
       "Yes.", "No.", "Maybe.", "Probably.", "Definitely.", "Absolutely not.",
@@ -211,16 +212,19 @@ async function handleBotMention(message) {
       "100%", "For sure.", "No comment.",
       "Possible..", "hihihihihi"
     ];
-    await message.channel.send({
-      content: randomPick(responses),
-      allowedMentions: { parse: [] }
-    });
+    response = randomPick(responses);
   } else {
-    await message.channel.send({
-      content: "https://klipy.com/gifs/kanye-bully",
-      allowedMentions: { parse: [] }
-    });
+    response = "https://klipy.com/gifs/kanye-bully";
   }
+
+  // Reply to the exact message and ping the person who mentioned the bot.
+  await message.reply({
+    content: response,
+    allowedMentions: {
+      users: [message.author.id],
+      repliedUser: true
+    }
+  });
 
   return true;
 }
