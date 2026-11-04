@@ -52,7 +52,6 @@ const client = new Client({
   ]
 });
 
-function sleep(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
 function randomPick(arr){ return arr?.length ? arr[Math.floor(Math.random()*arr.length)] : ""; }
 function renderText(text, ctx){
   const u=ctx.user,g=ctx.guild,ch=ctx.channel,i=ctx.interaction;
