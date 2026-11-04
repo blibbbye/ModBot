@@ -210,7 +210,7 @@ async function handleBotMention(message) {
       "HAHAHHA fuck no u little kid AHAHAH", "I have a crush on you",
       "Try again.", "hmmmmm lemme think about it", "YES YES YES OMG OMG OMG OYAYAYAYYAYAYA",
       "100%", "For sure.", "No comment.",
-      "Possible..", "hihihihihi"
+      "Possible..", "hihihihihi", "Cry about it", "Am sowy", "Im sorry mb", "mb", "Ur the reason Yandhi did not release",
     ];
     response = randomPick(responses);
   } else {
